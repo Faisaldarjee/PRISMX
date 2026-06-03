@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with persistent interest watchlists and premium tier settings.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "vIPStatus": { "type": "string", "enum": ["FREE", "PRO", "ELITE"] },
+        "interestedSymbols": { "type": "array" }
+      },
+      "required": ["userId", "email"]
+    },
+    "Watchlist": {
+      "title": "Watchlist",
+      "description": "Cloud synchronized user watchlist containing customized triggers.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "symbols": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "symbols"]
+    },
+    "PortfolioPurchase": {
+      "title": "PortfolioPurchase",
+      "description": "User saved purchase history for tracking systematic accumulation.",
+      "type": "object",
+      "properties": {
+        "purchaseId": { "type": "string" },
+        "userId": { "type": "string" },
+        "symbol": { "type": "string" },
+        "buyPrice": { "type": "number" },
+        "quantity": { "type": "number" },
+        "date": { "type": "string" },
+        "systematicAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["purchaseId", "userId", "symbol", "buyPrice", "quantity"]
+    },
+    "SignalNotification": {
+      "title": "SignalNotification",
+      "description": "Personalized low-latency smart alert triggered when interest assets touch buy ranges.",
+      "type": "object",
+      "properties": {
+        "notificationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "symbol": { "type": "string" },
+        "signal": { "type": "string" },
+        "price": { "type": "number" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["notificationId", "userId", "symbol", "signal", "read"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User accounts and subscription statuses"
+    },
+    "users/{userId}/watchlist/default": {
+      "schema": "Watchlist",
+      "description": "User synced stock and commodity watchlist"
+    },
+    "users/{userId}/portfolio/{purchaseId}": {
+      "schema": "PortfolioPurchase",
+      "description": "Custom verified buys stored for cross-device systematic tracking"
+    },
+    "users/{userId}/notifications/{notificationId}": {
+      "schema": "SignalNotification",
+      "description": "User smart notifications triggered by activity patterns and interest alignment"
+    }
+  }
+}

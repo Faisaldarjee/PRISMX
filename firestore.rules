@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) 
+        && request.resource.data.userId == userId
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 256;
+      allow delete: if false;
+
+      match /watchlist/{watchlistId} {
+        allow get: if isOwner(userId) && isValidId(watchlistId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(watchlistId);
+        allow delete: if isOwner(userId) && isValidId(watchlistId);
+      }
+
+      match /portfolio/{purchaseId} {
+        allow get: if isOwner(userId) && isValidId(purchaseId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(purchaseId);
+        allow delete: if isOwner(userId) && isValidId(purchaseId);
+      }
+
+      match /notifications/{notificationId} {
+        allow get: if isOwner(userId) && isValidId(notificationId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(notificationId);
+        allow delete: if isOwner(userId) && isValidId(notificationId);
+      }
+    }
+  }
+}

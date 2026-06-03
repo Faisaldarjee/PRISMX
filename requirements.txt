@@ -1,0 +1,16 @@
+pandas==2.2.1
+yfinance==0.2.38
+pandas-ta==0.3.14b0
+fastapi==0.110.1
+uvicorn==0.29.0
+scikit-learn==1.4.2
+xgboost==2.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+python-dotenv==1.0.1
+sqlalchemy==2.0.29
+schedule==1.2.1
+river==0.21.0
+transformers==4.39.3
+joblib==1.4.0
+feedparser==6.0.11
