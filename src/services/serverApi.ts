@@ -405,58 +405,70 @@ async function fetchSafeHistory(symbol: string, startDate: Date, endDate: Date):
     return [];
   }
 
+  let chartRes: any = null;
   try {
-    const chartRes = await yahooFinance.chart(resolved, {
+    chartRes = await yahooFinance.chart(resolved, {
       period1: startDate,
       period2: endDate,
       interval: '1d'
     }, { validateResult: false }) as any;
-    if (chartRes && chartRes.quotes) {
-      const quotes = chartRes.quotes.filter(
-        (q: any) =>
-          q.date &&
-          q.close !== null &&
-          q.close !== undefined &&
-          q.open !== null &&
-          q.open !== undefined &&
-          q.high !== null &&
-          q.high !== undefined &&
-          q.low !== null &&
-          q.low !== undefined
-      );
-      if (quotes.length > 0) {
-        return quotes;
-      }
-    }
   } catch (err: any) {
-    console.info(`[market-feed] ${resolved} chart redirect triggers fallback query.`);
+    if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
+      chartRes = err.result;
+    } else {
+      console.info(`[market-feed] ${resolved} chart redirect query detail:`, err.message);
+    }
   }
 
+  if (chartRes && chartRes.quotes) {
+    const quotes = chartRes.quotes.filter(
+      (q: any) =>
+        q.date &&
+        q.close !== null &&
+        q.close !== undefined &&
+        q.open !== null &&
+        q.open !== undefined &&
+        q.high !== null &&
+        q.high !== undefined &&
+        q.low !== null &&
+        q.low !== undefined
+    );
+    if (quotes.length > 0) {
+      return quotes;
+    }
+  }
+
+  let historicalRes: any = null;
   try {
-    const historicalRes = await yahooFinance.historical(resolved, {
+    historicalRes = await yahooFinance.historical(resolved, {
       period1: startDate,
       period2: endDate,
       interval: '1d'
     }, { validateResult: false }) as any[];
-    if (historicalRes) {
-      const quotes = historicalRes.filter(
-        (q: any) =>
-          q.date &&
-          q.close !== null &&
-          q.close !== undefined &&
-          q.open !== null &&
-          q.open !== undefined &&
-          q.high !== null &&
-          q.high !== undefined &&
-          q.low !== null &&
-          q.low !== undefined
-      );
-      if (quotes.length > 0) {
-        return quotes;
-      }
-    }
   } catch (err: any) {
-    console.info(`[market-feed] ${resolved} historical feed failure:`, err.message);
+    if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
+      historicalRes = err.result;
+    } else {
+      console.info(`[market-feed] ${resolved} historical feed notification:`, err.message);
+    }
+  }
+
+  if (historicalRes) {
+    const quotes = historicalRes.filter(
+      (q: any) =>
+        q.date &&
+        q.close !== null &&
+        q.close !== undefined &&
+        q.open !== null &&
+        q.open !== undefined &&
+        q.high !== null &&
+        q.high !== undefined &&
+        q.low !== null &&
+        q.low !== undefined
+    );
+    if (quotes.length > 0) {
+      return quotes;
+    }
   }
 
   // Set as rate-limited/unavailable for 5 minutes

@@ -2,6 +2,7 @@ import { getPricesHistory, db } from './serverApi';
 import { TechnicalAgent } from './agents/technicalAgent';
 import { fetchHeadlinesForSymbol } from './newsFetcher';
 import { ai, isGeminiSuspended, handleGeminiError } from './geminiState';
+import { NIFTY_500_SYMBOLS } from '../data/nifty500';
 
 // Ensure database table exists
 db.exec(`
@@ -85,6 +86,7 @@ export interface SectorMomentum {
   newsScore: 'positive' | 'negative' | 'neutral';
   trending: boolean;
   topStocks: string[];
+  stockCount: number;
   summary: string;
   updatedAt: string;
 }
@@ -94,89 +96,311 @@ export const SECTORS: Record<string, SectorDefinition> = {
     name: 'Banking & Finance',
     index: 'NIFTY BANK',
     indexSymbol: '^NSEBANK',
-    stocks: ['HDFCBANK', 'ICICIBANK', 'SBIN', 'KOTAKBANK', 'AXISBANK', 
-             'IDFCFIRSTB', 'BANDHANBNK', 'FEDERALBNK', 'INDUSINDBK', 'AUBANK'],
-    newsKeywords: ['bank', 'RBI', 'interest rate', 'NPA', 'credit', 'lending', 'NBFC']
+    newsKeywords: ['bank', 'RBI', 'interest rate', 'NPA', 
+                   'credit', 'lending', 'NBFC', 'deposit'],
+    stocks: [
+      // Large cap banks
+      'HDFCBANK', 'ICICIBANK', 'SBIN', 'KOTAKBANK', 'AXISBANK',
+      'IDFCFIRSTB', 'BANDHANBNK', 'FEDERALBNK', 'INDUSINDBK',
+      'AUBANK', 'RBLBANK', 'CSBBANK', 'DCBBANK', 'KTKBANK',
+      'KARURVYSYA', 'LAKSHVILAS', 'J&KBANK', 'SOUTHBANK',
+      'TMBFINANCE', 'UJJIVANSFB', 'EQUITASBNK', 'SURYODAY',
+      'ESAFSFB', 'UTKARSHBNK',
+    ]
   },
+
   IT: {
     name: 'Information Technology',
     index: 'NIFTY IT',
     indexSymbol: '^CNXIT',
-    stocks: ['TCS', 'INFY', 'WIPRO', 'HCLTECH', 'TECHM', 'LTIM', 'MPHASIS', 
-             'PERSISTENT', 'COFORGE', 'OFSS'],
-    newsKeywords: ['IT', 'software', 'tech', 'USD', 'outsourcing', 'AI', 'cloud']
+    newsKeywords: ['IT', 'software', 'tech', 'USD', 
+                   'outsourcing', 'AI', 'cloud', 'digital'],
+    stocks: [
+      'TCS', 'INFY', 'WIPRO', 'HCLTECH', 'TECHM',
+      'LTIM', 'MPHASIS', 'PERSISTENT', 'COFORGE', 'OFSS',
+      'HEXAWARE', 'KPITTECH', 'TATAELXSI', 'CYIENT',
+      'NIITLTD', 'MASTEK', 'BSOFT', 'ZENSAR', 'BIRLASOFT',
+      'RSSOFTWARE', 'HAPPSTMNDS', 'INTELLECT', 'NEWGEN',
+      'TANLA', 'MAPMYINDIA', 'ROUTE', 'DATAMATICS',
+      'ECLERX', 'NELCO', 'SAKSOFT',
+    ]
   },
+
   AUTO: {
     name: 'Automobile',
     index: 'NIFTY AUTO',
     indexSymbol: '^CNXAUTO',
-    stocks: ['MARUTI', 'TATAMOTORS', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO', 
-             'EICHERMOT', 'ASHOKLEY', 'TVSMOTOR', 'BALKRISIND'],
-    newsKeywords: ['auto', 'vehicle', 'EV', 'electric vehicle', 'fuel', 'GST auto']
+    newsKeywords: ['auto', 'vehicle', 'EV', 'electric vehicle',
+                   'fuel', 'GST auto', 'two wheeler', 'car sales'],
+    stocks: [
+      'MARUTI', 'TATAMOTORS', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO',
+      'EICHERMOT', 'ASHOKLEY', 'TVSMOTOR', 'BALKRISIND',
+      'MOTHERSON', 'BOSCHLTD', 'BHARATFORG', 'SUNDRMFAST',
+      'AMARAJABAT', 'EXIDEIND', 'LUMAXTECH', 'SWARAJENG',
+      'ESCORTS', 'FORCEMOT', 'TIINDIA', 'SUPRAJIT',
+      'MINDAIND', 'GABRIEL', 'SUBROS', 'SHRIRAMCIT',
+      'MINDA', 'ENDURANCE', 'LAXMIMACH', 'CRAFTSMAN',
+      'OLECTRA', 'GREAVES', 'HINDMOTORS',
+    ]
   },
+
   PHARMA: {
-    name: 'Pharmaceuticals',
+    name: 'Pharmaceuticals & Healthcare',
     index: 'NIFTY PHARMA',
     indexSymbol: '^CNXPHARMA',
-    stocks: ['SUNPHARMA', 'DRREDDY', 'CIPLA', 'DIVISLAB', 'BIOCON', 
-             'AUROPHARMA', 'LUPIN', 'ALKEM', 'TORNTPHARM'],
-    newsKeywords: ['pharma', 'FDA', 'drug', 'USFDA', 'API', 'medicine', 'healthcare']
+    newsKeywords: ['pharma', 'FDA', 'drug', 'USFDA', 'API',
+                   'medicine', 'healthcare', 'hospital', 'ANDA'],
+    stocks: [
+      'SUNPHARMA', 'DRREDDY', 'CIPLA', 'DIVISLAB', 'BIOCON',
+      'AUROPHARMA', 'LUPIN', 'ALKEM', 'TORNTPHARM', 'ABBOTINDIA',
+      'PFIZER', 'GLAXO', 'SANOFI', 'AJANTPHARM', 'IPCALAB',
+      'NATCOPHARM', 'LAURUSLABS', 'GRANULES', 'JBCHEPHARM',
+      'FORTIS', 'MAXHEALTH', 'APOLLOHOSP', 'METROPOLIS',
+      'THYROCARE', 'KRSNAA', 'VIJAYAPATH', 'MEDANTA',
+      'POLY', 'INDOCO', 'CAPLIPOINT', 'BLISSGVS',
+      'SEQUENT', 'SOLARA', 'HIKAL', 'SHILPAMED',
+    ]
   },
+
   METALS: {
     name: 'Metals & Mining',
     index: 'NIFTY METAL',
     indexSymbol: '^CNXMETAL',
-    stocks: ['TATASTEEL', 'JSWSTEEL', 'HINDALCO', 'VEDL', 'HINDZINC', 
-             'SAIL', 'NMDC', 'COALINDIA', 'JINDALSTEL'],
-    newsKeywords: ['steel', 'metal', 'aluminium', 'zinc', 'copper', 'iron ore', 'commodity']
+    newsKeywords: ['steel', 'metal', 'aluminium', 'zinc',
+                   'copper', 'iron ore', 'commodity', 'mining'],
+    stocks: [
+      'TATASTEEL', 'JSWSTEEL', 'HINDALCO', 'VEDL', 'HINDZINC',
+      'SAIL', 'NMDC', 'COALINDIA', 'JINDALSTEL', 'JSPL',
+      'APLAPOLLO', 'RATNAMANI', 'WELCORP', 'MAHSEAMLES',
+      'MOIL', 'SANDUMA', 'NATMIN', 'GMRINFRA',
+      'TINPLATE', 'SHYAMMETL', 'GALLANTT', 'MIDHANI',
+      'MSTCLTD', 'KIOCL',
+    ]
   },
+
   FMCG: {
-    name: 'FMCG',
+    name: 'FMCG & Consumer',
     index: 'NIFTY FMCG',
     indexSymbol: '^CNXFMCG',
-    stocks: ['HINDUNILVR', 'ITC', 'NESTLEIND', 'BRITANNIA', 'DABUR', 
-             'MARICO', 'GODREJCP', 'COLPAL', 'EMAMILTD'],
-    newsKeywords: ['FMCG', 'consumer', 'rural demand', 'monsoon', 'inflation', 'food']
+    newsKeywords: ['FMCG', 'consumer', 'rural demand',
+                   'monsoon', 'inflation', 'food', 'beverage'],
+    stocks: [
+      'HINDUNILVR', 'ITC', 'NESTLEIND', 'BRITANNIA', 'DABUR',
+      'MARICO', 'GODREJCP', 'COLPAL', 'EMAMILTD', 'TATACONSUM',
+      'VARUNBEV', 'UBL', 'UNITEDSPRT', 'RADICO', 'MCDOWELL-N',
+      'JUBLFOOD', 'DEVYANI', 'SAPPHIRE', 'WESTLIFE',
+      'BIKAJI', 'PRATAAP', 'DFM', 'HNDFDS', 'VENKEYS',
+      'ZYDUSWELL', 'GILLETTE', 'PGHL', 'BAJAJCON',
+      'JYOTHYLAB', 'HATSUN', 'HERITAGE', 'TASTY',
+    ]
   },
+
   ENERGY: {
     name: 'Energy & Power',
     index: 'NIFTY ENERGY',
     indexSymbol: '^CNXENERGY',
-    stocks: ['RELIANCE', 'ONGC', 'IOC', 'BPCL', 'GAIL', 'POWERGRID', 
-             'NTPC', 'ADANIGREEN', 'TATAPOWER'],
-    newsKeywords: ['oil', 'crude', 'gas', 'power', 'energy', 'renewable', 'solar']
+    newsKeywords: ['oil', 'crude', 'gas', 'power',
+                   'energy', 'renewable', 'solar', 'wind'],
+    stocks: [
+      'RELIANCE', 'ONGC', 'IOC', 'BPCL', 'GAIL',
+      'POWERGRID', 'NTPC', 'ADANIGREEN', 'TATAPOWER', 'ADANIPOWER',
+      'JSWENERGY', 'TORNTPOWER', 'CESC', 'NHPC', 'SJVN',
+      'IREDA', 'RECLTD', 'PFC', 'PGCIL', 'NPTC',
+      'GREENPOWER', 'INOXWIND', 'SUZLON', 'WAAREEENER',
+      'PREMIERPROP', 'OIL', 'MRPL', 'CHENNPETRO',
+      'GULFOILLUB', 'CASTROLIND',
+    ]
   },
+
   REALTY: {
     name: 'Real Estate',
     index: 'NIFTY REALTY',
     indexSymbol: '^CNXREALTY',
-    stocks: ['DLF', 'GODREJPROP', 'OBEROIRLTY', 'PRESTIGE', 'BRIGADE', 
-             'PHOENIXLTD', 'SOBHA'],
-    newsKeywords: ['real estate', 'realty', 'property', 'housing', 'construction', 'REITs']
+    newsKeywords: ['real estate', 'realty', 'property',
+                   'housing', 'construction', 'REITs', 'builder'],
+    stocks: [
+      'DLF', 'GODREJPROP', 'OBEROIRLTY', 'PRESTIGE', 'BRIGADE',
+      'PHOENIXLTD', 'SOBHA', 'MAHLIFE', 'KOLTEPATIL', 'ARVINDFASN',
+      'SUNTECK', 'KEYFINSERV', 'ANANTRAJ', 'ELDEHSG',
+      'PURVA', 'RUSTOMJEE', 'ASHIANA', 'IBREALEST',
+      'NESCO', 'INDIABULL', 'EMBASSY', 'MINDSPACE',
+      'NEXUSMALLS', 'BROOKFREAL',
+    ]
   },
+
   INFRA: {
-    name: 'Infrastructure',
+    name: 'Infrastructure & Cement',
     index: 'NIFTY INFRA',
     indexSymbol: '^CNXINFRA',
-    stocks: ['LT', 'ADANIPORTS', 'GMRINFRA', 'IRB', 'NBCC', 'NCC', 'KEC'],
-    newsKeywords: ['infrastructure', 'roads', 'highways', 'ports', 'capex', 'government spending']
+    newsKeywords: ['infrastructure', 'roads', 'highways',
+                   'ports', 'capex', 'government spending', 'cement'],
+    stocks: [
+      'LT', 'ADANIPORTS', 'GMRINFRA', 'IRB', 'NBCC',
+      'NCC', 'KEC', 'ULTRACEMCO', 'SHREECEM', 'AMBUJACEM',
+      'ACC', 'JKCEMENT', 'RAMCOCEM', 'HEIDELBERG', 'BIRLACORPN',
+      'ORIENTCEM', 'STARCEMENT', 'NUVOCO', 'SAGCEM',
+      'KNRCON', 'HCC', 'PNCINFRA', 'ASHOKA',
+      'GPPL', 'CONCOR', 'GATEWAY', 'AEGISLOG',
+      'MAHINDCIE', 'AHLUCONT', 'GRINFRA',
+    ]
   },
+
   FINANCE: {
-    name: 'Financial Services',
+    name: 'Financial Services & Insurance',
     index: 'NIFTY FIN SERVICE',
     indexSymbol: '^CNXFINANCE',
-    stocks: ['BAJFINANCE', 'BAJAJFINSV', 'MUTHOOTFIN', 'MANAPPURAM', 
-             'CHOLAFIN', 'M&MFIN', 'LICHSGFIN'],
-    newsKeywords: ['NBFC', 'gold loan', 'microfinance', 'insurance', 'asset management']
+    newsKeywords: ['NBFC', 'gold loan', 'microfinance',
+                   'insurance', 'asset management', 'broker'],
+    stocks: [
+      'BAJFINANCE', 'BAJAJFINSV', 'MUTHOOTFIN', 'MANAPPURAM',
+      'CHOLAFIN', 'M&MFIN', 'LICHSGFIN', 'HDFCLIFE',
+      'SBILIFE', 'ICICIGI', 'ICICIPRULI', 'HDFCAMC',
+      'NIPPONIND', 'IIFL', 'LICI', 'SBICARDS',
+      'SHRIRAMFIN', 'PNBHOUSING', 'CANFINHOME', 'GRUH',
+      'APTUS', 'AAVAS', 'HOMEFIRST', 'CREDITACC',
+      'UJJIVAN', 'SPANDANA', 'ARMANFIN', 'FUSION',
+      'ANGELONE', 'MOTILALOFS', 'ICICISEC', 'GEOJIT',
+      'KFINTECH', 'CAMS', 'CDSL', 'BSE',
+    ]
   },
+
   DEFENCE: {
     name: 'Defence & Aerospace',
     index: 'NIFTY INDIA DEFENCE',
     indexSymbol: 'NIFTYDEFENCE.NS',
-    stocks: ['HAL', 'BEL', 'COCHINSHIP', 'BEML', 'MAZDOCK', 'PARAS'],
-    newsKeywords: ['defence', 'military', 'HAL', 'DRDO', 'order win', 'export']
+    newsKeywords: ['defence', 'military', 'HAL', 'DRDO',
+                   'order win', 'export', 'aerospace', 'navy'],
+    stocks: [
+      'HAL', 'BEL', 'COCHINSHIP', 'BEML', 'MAZDOCK',
+      'PARAS', 'DATAPATTNS', 'MTAR', 'IDEAFORGE',
+      'ASTRALMICRO', 'DYNAMATECH', 'ZEN', 'CENTUM',
+      'ELECTRONCS', 'GSLSU', 'GARWALLRES', 'SOLAR',
+    ]
+  },
+
+  TELECOM: {
+    name: 'Telecom & Media',
+    index: 'NIFTY MEDIA',
+    indexSymbol: '^CNXMEDIA',
+    newsKeywords: ['telecom', '5G', 'broadband', 'media',
+                   'OTT', 'cable', 'DTH', 'spectrum'],
+    stocks: [
+      'BHARTIARTL', 'IDEA', 'TATACOMM', 'HFCL',
+      'STLTECH', 'VINDHYATEL', 'GTLINFRA', 'ITI',
+      'ZEEL', 'SUNTV', 'NETWORK18', 'TV18BRDCST',
+      'TVTODAY', 'NDTV', 'JAGRAN', 'DBCORP',
+    ]
+  },
+
+  CHEMICALS: {
+    name: 'Chemicals & Specialty',
+    index: 'NIFTY CHEMICALS',
+    indexSymbol: '^CNXCHEMICAL',
+    newsKeywords: ['chemical', 'specialty chemical', 'agrochemical',
+                   'paint', 'adhesive', 'dye', 'pigment'],
+    stocks: [
+      'ASIANPAINT', 'BERGERPAINTS', 'KANSAINER', 'AKZONOBEL',
+      'PIDILITIND', 'ATUL', 'DEEPAKNI', 'NAVINFLUOR',
+      'TATACHEM', 'GNFC', 'GSFC', 'CHAMBLF',
+      'FINEORG', 'SUDARSCHEM', 'VINATI', 'CLEAN',
+      'GALAXYSURF', 'ROSSARI', 'NEOGEN', 'ANUPAM',
+      'PCBL', 'PHILLIPS', 'NOCIL', 'CHEMPLASTS',
+      'DCMSHRIRAM', 'AARTI', 'AARTIIND', 'FLUOROCHEM',
+    ]
+  },
+
+  TEXTILES: {
+    name: 'Textiles & Apparel',
+    index: 'NIFTY INDIA CONSUMPTION',
+    indexSymbol: '^CNXCONSUMP',
+    newsKeywords: ['textile', 'garment', 'apparel', 'fabric',
+                   'cotton', 'yarn', 'fashion', 'retail'],
+    stocks: [
+      'PAGEIND', 'TRENT', 'ABFRL', 'MANYAVAR',
+      'SPENCERS', 'VMART', 'SHOPERSTOP', 'DMART',
+      'RAYMOND', 'ARVIND', 'WELSPUNIND', 'VARDHMAN',
+      'TRIDENT', 'NITIN', 'KITEX', 'GOKEX',
+      'SUTLEJ', 'RSWM', 'SIYARAM',
+    ]
+  },
+
+  OTHERS: {
+    name: 'Diversified / Others',
+    index: 'NIFTY 500',
+    indexSymbol: '^NSEI',
+    newsKeywords: ['nifty', 'market', 'sensex', 'BSE', 'NSE'],
+    stocks: []  // populated dynamically from unmapped stocks
   }
 };
+
+// Dynamically populate OTHERS.stocks with NIFTY_500_SYMBOLS that are not mapped in any other sector
+const mappedStocks = new Set<string>();
+Object.entries(SECTORS).forEach(([key, sector]) => {
+  if (key !== 'OTHERS') {
+    sector.stocks.forEach(s => mappedStocks.add(s.toUpperCase()));
+  }
+});
+
+SECTORS.OTHERS.stocks = NIFTY_500_SYMBOLS
+  .map(s => s.replace('.NS', '').toUpperCase())
+  .filter(s => !mappedStocks.has(s));
+
+// Build reverse lookup map: symbol → sector
+function buildSectorLookup(): Map<string, string> {
+  const lookup = new Map<string, string>();
+  
+  Object.entries(SECTORS).forEach(([sectorKey, sector]) => {
+    sector.stocks.forEach(stock => {
+      // Add both with and without .NS suffix
+      lookup.set(stock, sectorKey);
+      lookup.set(stock + '.NS', sectorKey);
+      lookup.set(stock.replace('.NS', ''), sectorKey);
+    });
+  });
+  
+  return lookup;
+}
+
+const SECTOR_LOOKUP = buildSectorLookup();
+
+// Get sector for any symbol
+export function getSectorForSymbol(symbol: string): string {
+  // Clean symbol
+  const clean = symbol.replace('.NS', '').toUpperCase();
+  
+  // Direct lookup
+  if (SECTOR_LOOKUP.has(clean)) {
+    return SECTOR_LOOKUP.get(clean)!;
+  }
+  
+  // Try with .NS
+  if (SECTOR_LOOKUP.has(clean + '.NS')) {
+    return SECTOR_LOOKUP.get(clean + '.NS')!;
+  }
+  
+  // Try cleaning suffix variations
+  const cleanBase = clean.replace('_ALT', '').replace('_MAIN', '').replace('_FIN', '').replace('_STEEL', '');
+  if (SECTOR_LOOKUP.has(cleanBase)) {
+    return SECTOR_LOOKUP.get(cleanBase)!;
+  }
+  if (SECTOR_LOOKUP.has(cleanBase + '.NS')) {
+    return SECTOR_LOOKUP.get(cleanBase + '.NS')!;
+  }
+  
+  // Keyword-based fallback
+  // Banking keywords in name
+  if (/BANK|FINANCE|CREDIT|LOAN/i.test(clean)) return 'BANKING';
+  if (/PHARMA|HEALTH|MEDIC|HOSPITAL/i.test(clean)) return 'PHARMA';
+  if (/TECH|SOFT|INFOSY|DIGIT/i.test(clean)) return 'IT';
+  if (/STEEL|METAL|ALUM|ZINC|COPPER/i.test(clean)) return 'METALS';
+  if (/POWER|ENERGY|SOLAR|WIND|GAS/i.test(clean)) return 'ENERGY';
+  if (/CEMENT|INFRA|ROAD|PORT/i.test(clean)) return 'INFRA';
+  if (/CHEM|PAINT|COLOUR/i.test(clean)) return 'CHEMICALS';
+  if (/DEFENCE|NAVAL|AERO/i.test(clean)) return 'DEFENCE';
+  
+  // Default
+  return 'OTHERS';
+}
 
 /**
  * Calculates sector momentum and news sentiment step-by-step
@@ -266,7 +490,7 @@ Return strictly a valid JSON object matching this schema:
       if (parsed.summary) summary = parsed.summary;
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      console.warn(`[SectorIntelligence] Gemini sentiment parse failed for ${sector.name}:`, errMsg);
+      console.info(`[SectorIntelligence] Gemini sentiment analysis limits reached or exception for ${sector.name}:`, errMsg);
       
       handleGeminiError(err, `Sector-${sector.name}`);
 
@@ -310,13 +534,14 @@ Return strictly a valid JSON object matching this schema:
     newsScore,
     trending,
     topStocks,
+    stockCount: sector.stocks.length,
     summary,
     updatedAt: new Date().toISOString()
   };
 }
 
 /**
- * Returns all 11 sector strengths from database cache or fetches them fresh
+ * Returns all sector strengths from database cache or fetches them fresh
  */
 export async function getAllSectorStrengths(): Promise<SectorMomentum[]> {
   try {
@@ -339,7 +564,7 @@ export async function getAllSectorStrengths(): Promise<SectorMomentum[]> {
     console.warn("[SectorIntelligence] Error checking caches, proceeding to fresh calculations:", err.message);
   }
 
-  console.log("[SectorIntelligence] Cache stale or miss. Triggering full 11-sector sequential evaluations...");
+  console.log(`[SectorIntelligence] Cache stale or miss. Triggering full ${Object.keys(SECTORS).length}-sector sequential evaluations...`);
   const keys = Object.keys(SECTORS);
   const results: SectorMomentum[] = [];
   for (const key of keys) {

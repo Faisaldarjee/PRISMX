@@ -23,36 +23,52 @@ export async function fetchHistoricalData(symbol: string, days = 365) {
     const startDate = subDays(endDate, days);
     
     let result: any[] = [];
+    let chartRes: any = null;
     try {
-      const chartRes = await yahooFinance.chart(symbol, {
+      chartRes = await yahooFinance.chart(symbol, {
         period1: startDate,
         period2: endDate,
         interval: '1d'
       });
-      if (chartRes && chartRes.quotes) {
-        result = chartRes.quotes.filter(
-          (q: any) =>
-            q.date &&
-            q.close !== null &&
-            q.close !== undefined &&
-            q.open !== null &&
-            q.open !== undefined &&
-            q.high !== null &&
-            q.high !== undefined &&
-            q.low !== null &&
-            q.low !== undefined
-        );
-      }
     } catch (err: any) {
-      console.warn(`[chart] Fallback triggered for market data of ${symbol}:`, err.message);
+      if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
+        chartRes = err.result;
+      } else {
+        console.warn(`[chart] Fallback triggered for market data of ${symbol}:`, err.message);
+      }
+    }
+
+    if (chartRes && chartRes.quotes) {
+      result = chartRes.quotes.filter(
+        (q: any) =>
+          q.date &&
+          q.close !== null &&
+          q.close !== undefined &&
+          q.open !== null &&
+          q.open !== undefined &&
+          q.high !== null &&
+          q.high !== undefined &&
+          q.low !== null &&
+          q.low !== undefined
+      );
     }
 
     if (result.length === 0) {
-      const historicalRes = await yahooFinance.historical(symbol, {
-        period1: startDate,
-        period2: endDate,
-        interval: '1d'
-      }) as any[];
+      let historicalRes: any = null;
+      try {
+        historicalRes = await yahooFinance.historical(symbol, {
+          period1: startDate,
+          period2: endDate,
+          interval: '1d'
+        }) as any[];
+      } catch (err: any) {
+        if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
+          historicalRes = err.result;
+        } else {
+          console.warn(`[historical] Error fetching for ${symbol}:`, err.message);
+        }
+      }
+
       if (historicalRes) {
         result = historicalRes.filter(
           (q: any) =>

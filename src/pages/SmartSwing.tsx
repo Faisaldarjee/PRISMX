@@ -32,6 +32,7 @@ export interface SectorMomentum {
   newsScore: 'positive' | 'negative' | 'neutral';
   trending: boolean;
   topStocks: string[];
+  stockCount?: number;
   summary: string;
   updatedAt: string;
 }
@@ -93,7 +94,11 @@ export const SECTOR_EMOJIS: Record<string, string> = {
   REALTY: '🏢',
   INFRA: '🏗️',
   FINANCE: '📊',
-  DEFENCE: '🛡️'
+  DEFENCE: '🛡️',
+  TELECOM: '📡',
+  CHEMICALS: '⚗️',
+  TEXTILES: '👕',
+  OTHERS: '📁'
 };
 
 export function SmartSwing() {
@@ -330,7 +335,7 @@ export function SmartSwing() {
                       {/* Name & Badge Header */}
                       <div className="flex items-start justify-between gap-1 mb-1.5">
                         <span className="font-display font-medium text-[12.5px] leading-tight text-white pr-2 whitespace-normal line-clamp-1">
-                          {SECTOR_EMOJIS[sec.sector] || '📁'} {sec.name}
+                          {SECTOR_EMOJIS[sec.sector] || '📁'} {sec.name} {sec.stockCount !== undefined ? `(${sec.stockCount} stocks)` : ''}
                         </span>
                         {isHot && (
                           <span className="shrink-0 font-mono font-bold text-[9px] text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded tracking-wide">

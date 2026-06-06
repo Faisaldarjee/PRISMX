@@ -13,6 +13,17 @@ const yahooFinance = new YahooFinance({
   }
 });
 
+async function fetchSafeChart(symbol: string, queryOptions: any): Promise<any> {
+  try {
+    return await yahooFinance.chart(symbol, queryOptions, { validateResult: false });
+  } catch (err: any) {
+    if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
+      return err.result;
+    }
+    throw err;
+  }
+}
+
 export interface OHLCV {
   time: number; // Unix timestamp in seconds
   open: number;
@@ -205,51 +216,51 @@ export async function fetchCandles(symbol: string, timeframe: string): Promise<O
   try {
     // 2. Fetch or compute depending on timeframe
     if (timeframe === '1m') {
-      const chartRes = await yahooFinance.chart(resolved, {
+      const chartRes = await fetchSafeChart(resolved, {
         period1: subDays(new Date(), 1),
         period2: new Date(),
         interval: '1m'
-      }, { validateResult: false }) as any;
+      }) as any;
       if (chartRes && chartRes.quotes) {
         result = normalizeYahooQuotes(chartRes.quotes);
       }
     } 
     else if (timeframe === '5m') {
-      const chartRes = await yahooFinance.chart(resolved, {
+      const chartRes = await fetchSafeChart(resolved, {
         period1: subDays(new Date(), 4), // past 4 days inclusive of holidays/weekends
         period2: new Date(),
         interval: '5m'
-      }, { validateResult: false }) as any;
+      }) as any;
       if (chartRes && chartRes.quotes) {
         result = normalizeYahooQuotes(chartRes.quotes);
       }
     } 
     else if (timeframe === '15m') {
-      const chartRes = await yahooFinance.chart(resolved, {
+      const chartRes = await fetchSafeChart(resolved, {
         period1: subDays(new Date(), 5),
         period2: new Date(),
         interval: '15m'
-      }, { validateResult: false }) as any;
+      }) as any;
       if (chartRes && chartRes.quotes) {
         result = normalizeYahooQuotes(chartRes.quotes);
       }
     } 
     else if (timeframe === '1h') {
-      const chartRes = await yahooFinance.chart(resolved, {
+      const chartRes = await fetchSafeChart(resolved, {
         period1: subDays(new Date(), 30),
         period2: new Date(),
         interval: '60m'
-      }, { validateResult: false }) as any;
+      }) as any;
       if (chartRes && chartRes.quotes) {
         result = normalizeYahooQuotes(chartRes.quotes);
       }
     } 
     else if (timeframe === '4h') {
-      const chartRes = await yahooFinance.chart(resolved, {
+      const chartRes = await fetchSafeChart(resolved, {
         period1: subDays(new Date(), 60),
         period2: new Date(),
         interval: '60m'
-      }, { validateResult: false }) as any;
+      }) as any;
       if (chartRes && chartRes.quotes) {
         const hourly = normalizeYahooQuotes(chartRes.quotes);
         // Aggregate every 4 hours

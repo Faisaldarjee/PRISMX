@@ -36,7 +36,7 @@ import {
   verifyPendingPredictions
 } from './src/services/serverApi';
 import { fetchCandles } from './src/services/candleService';
-import { getAllSectorStrengths, getTopStocksFromSector, SECTORS } from './src/services/sectorIntelligence';
+import { getAllSectorStrengths, getTopStocksFromSector, SECTORS, getSectorForSymbol } from './src/services/sectorIntelligence';
 import { TechnicalAgent } from './src/services/agents/technicalAgent';
 import { detectPatterns } from './src/services/patternDetector';
 
@@ -583,13 +583,8 @@ async function startServer() {
           const prevCandle = prices[prices.length - 2];
           const changePercent = prevCandle ? ((lastCandle.close - prevCandle.close) / prevCandle.close) * 100 : 0;
           
-          let matchedSector = 'FMCG';
-          for (const [key, value] of Object.entries(SECTORS)) {
-            if (value.stocks.includes(sym.replace('.NS', ''))) {
-              matchedSector = value.name;
-              break;
-            }
-          }
+          const sectorKey = getSectorForSymbol(sym);
+          const matchedSector = SECTORS[sectorKey] ? SECTORS[sectorKey].name : 'Diversified / Others';
 
           enriched.push({
             symbol: sym,
