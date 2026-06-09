@@ -6,7 +6,7 @@ import { fetchUpcomingEvents } from './earningsTracker';
 import { getBulkDealSignalForSymbol, getPromoterData, fetchBulkDeals } from './bulkInsiderTracker';
 import { fetchHeadlinesForSymbol } from './newsFetcher';
 import YahooFinanceClass from 'yahoo-finance2';
-import { ai, isGeminiSuspended, handleGeminiError } from './geminiState';
+import { ai, isGeminiSuspended, handleGeminiError, trackGeminiCall } from './geminiState';
 
 const YahooFinance = (typeof YahooFinanceClass === 'function' ? YahooFinanceClass : (YahooFinanceClass as any).default) as any;
 const yahooFinance = new YahooFinance({
@@ -43,7 +43,7 @@ export interface SymbolIntelligence {
 }
 
 export async function getCompleteNewsIntelligence(): Promise<NewsMasterSummary> {
-  const cacheTTL = 15 * 60 * 1000; // 15 mins
+  const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours (extended cache)
   const masterKey = '_MASTER_INDEX';
 
   let cachedPayload: any = null;
@@ -166,6 +166,7 @@ Return a structured JSON output of type NewsMasterSummary that maps exactly to t
         }
       });
 
+      trackGeminiCall();
       if (response && response.text) {
         const payload = JSON.parse(response.text.trim());
         macroBrief = payload.macroBrief;
@@ -217,7 +218,7 @@ Return a structured JSON output of type NewsMasterSummary that maps exactly to t
 }
 
 export async function getSymbolIntelligence(symbol: string): Promise<SymbolIntelligence> {
-  const cacheTTL = 4 * 60 * 60 * 1000; // 4 hours Cache for symbols
+  const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours Cache for symbols (extended cache)
   const symKey = symbol.toUpperCase().trim();
 
   let cachedPayload: any = null;
@@ -329,6 +330,7 @@ Generate a short-horizon fiveDayNarrative (5-day outlook draft), key trading cat
         }
       });
 
+      trackGeminiCall();
       if (response && response.text) {
         const payload = JSON.parse(response.text.trim());
         score = Number(payload.sentimentScore) || score;

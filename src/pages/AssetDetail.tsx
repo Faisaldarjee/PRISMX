@@ -19,6 +19,7 @@ import { SignalBadge } from '../components/SignalBadge';
 import { LiveChart } from '../components/charts/LiveChart';
 import { AgentCard } from '../components/AgentCard';
 import { SMCPanel } from '../components/SMCPanel';
+import { NiftyDerivativeDashboard } from '../components/NiftyDerivativeDashboard';
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -86,10 +87,17 @@ export function AssetDetail() {
     global: true, // open by default
   });
 
+  const [subTab, setSubTab] = useState<'SPOT' | 'DERIVATIVES'>('SPOT');
+
   const [loading, setLoading] = useState(true);
   const [retraining, setRetraining] = useState(false);
   const [retrainSuccess, setRetrainSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const isNifty50 = resolvedSymbol.toUpperCase() === '^NSEI' || 
+                    resolvedSymbol.toUpperCase() === 'NIFTY' || 
+                    resolvedSymbol.toUpperCase() === 'NIFTY 50' ||
+                    resolvedSymbol.toUpperCase() === 'NIFTY.NS';
 
   const isEtf = resolvedSymbol.toUpperCase().includes('BEES') || 
                 resolvedSymbol.toUpperCase() === 'GOLDBEES.NS' || 
@@ -320,7 +328,37 @@ export function AssetDetail() {
         )}
       </section>
 
-      {/* INTELLIGENCE BREAKDOWN SECTION */}
+      {/* Dynamic F&O and Spot Tab Selectors for NIFTY 50 */}
+      {isNifty50 && (
+        <div className="flex border-b border-white/[0.04] gap-2 mb-2">
+          <button
+            onClick={() => setSubTab('SPOT')}
+            className={`px-5 py-3 text-xs font-display font-medium uppercase tracking-wider relative transition-all cursor-pointer ${
+              subTab === 'SPOT' 
+                ? 'text-[#00D084] font-bold border-b-2 border-[#00D084]' 
+                : 'text-[#8892A4] hover:text-white'
+            }`}
+          >
+            📊 Spot Analysis & SMC
+          </button>
+          <button
+            onClick={() => setSubTab('DERIVATIVES')}
+            className={`px-5 py-3 text-xs font-display font-medium uppercase tracking-wider relative transition-all cursor-pointer ${
+              subTab === 'DERIVATIVES' 
+                ? 'text-[#00D084] font-bold border-b-2 border-[#00D084]' 
+                : 'text-[#8892A4] hover:text-white'
+            }`}
+          >
+            ⚡ Options & Futures (F&O) Deck
+          </button>
+        </div>
+      )}
+
+      {isNifty50 && subTab === 'DERIVATIVES' ? (
+        <NiftyDerivativeDashboard prediction={prediction} />
+      ) : (
+        <>
+        {/* INTELLIGENCE BREAKDOWN SECTION */}
       <section className="glass-card p-6 md:p-8 space-y-6">
         <div id="intelligence-breakdown-panel" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.04] pb-4">
           <div>
@@ -1186,6 +1224,8 @@ export function AssetDetail() {
             </div>
           </div>
         </section>
+      )}
+        </>
       )}
 
     </div>

@@ -1,6 +1,6 @@
 {
   "name": "Bang On AI",
-  "description": "Premium systematic accumulation, smart SIP execution, and quantitative Swing trade playbook templates for Indian commodity BeES & modern stocks.",
+  "description": "Systematic accumulation and quantitative Swing trade playbook templates for Indian stocks.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

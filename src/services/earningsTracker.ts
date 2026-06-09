@@ -201,38 +201,18 @@ export async function analyzeRecentResults(symbol: string): Promise<any> {
   const surprisePercent = resultSentiment === 'BEAT' ? (3 + (hash % 8)) : resultSentiment === 'MISS' ? -(4 + (hash % 5)) : 0.5;
   const estimate = Number((eps / (1 + surprisePercent / 100)).toFixed(2));
 
-  let textSummary = `**Quarterly Financial Overview:**\n` +
-    `- **Revenue Growth:** +${revGrowth}% YoY, indicating steady product uptake.\n` +
-    `- **Net Profit Growth:** +${profitGrowth}% YoY, showcasing dynamic cost efficiencies and solid operating leverage.\n` +
-    `- **Earnings Per Share (EPS):** ₹${eps.toFixed(2)} (vs Bloomberg estimate of ₹${estimate.toFixed(2)}, representing a ${resultSentiment} of ${surprisePercent}%).\n` +
-    `- **Core Highlights:** Robust operating margins with strong performance across regional divisions. Balance sheet health remains immaculate.`;
+  const sentimentWord = resultSentiment === 'BEAT' ? 'strong beat' : resultSentiment === 'MISS' ? 'slight miss' : 'stable in-line performance';
+  const factorWord = resultSentiment === 'BEAT' ? 'robust consumer demand, improved operating leverage, and disciplined cost optimizations' : resultSentiment === 'MISS' ? 'inflationary headwinds, temporary supply chain disruptions, and raw material cost pressures' : 'balanced volume growth and standard operational efficiencies';
+  const biasWord = resultSentiment === 'BEAT' ? 'constructive long-term accumulation bias' : resultSentiment === 'MISS' ? 'short-term consolidation and careful support-level tracking' : 'steady range-bound posture within standard channel metrics';
+  const targetWord = resultSentiment === 'BEAT' ? 'upward re-rating trend as market multiples expand' : resultSentiment === 'MISS' ? 'temporary consolidation until volume numbers stabilize' : 'neutral, stable-yield tracking with support near historical averages';
 
-  if (ai && !isGeminiSuspended()) {
-    try {
-      console.log(`[EarningsTracker] Invoking Gemini to analyze results for ${symbol}...`);
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: `Analyze the recent corporate results for ${companyName} (${symbol}).
-Performance indicators:
-YoY Revenue Growth: +${revGrowth}%
-YoY Profit Growth: +${profitGrowth}%
-Core EPS: ₹${eps.toFixed(2)} (Estimated: ₹${estimate.toFixed(2)})
-Result Summary: ${resultSentiment} (Surprise: ${surprisePercent}%)
+  const textSummary = `**Quarterly Performance Executive Synthesis:**
+The latest quarterly financial results for ${companyName} (${symbol.split('.')[0]}) showcase a ${sentimentWord}, with Revenue growing at **+${revGrowth}% YoY** and Net Profit expanding intensely at **+${profitGrowth}% YoY**. This trajectory was largely driven by ${factorWord}, resulting in a recorded EPS of **₹${eps.toFixed(2)}** (versus our analyst consensus baseline of ₹${estimate.toFixed(2)}, marking a ${resultSentiment.toLowerCase()} surprise of **${surprisePercent}%**).
 
-Generate a high-quality 2-paragraph financial brief outlining:
-1. Whether it beats, misses or is in-line, highlighting what factors likely drove these numbers.
-2. The quantitative technical or fundamental outlook for the stock price based on these figures. Keep the tone professional, like a senior equities researcher. Avoid any introductory or outro filler words.`,
-      });
+**Equities and Fundamental Valuation Outlook:**
+Looking forward, this ${resultSentiment.toLowerCase()} performance validates our ${biasWord} for the asset. Under technical tracking rules, we expect ${targetWord}. Retail programmatic portfolios are advised to follow systematic SIP accumulation strategies near emerging consolidation supports rather than chasing breakouts during high-density earnings cycles.`;
 
-      if (response && response.text) {
-        textSummary = response.text.trim();
-        console.log("[EarningsTracker] Gemini analysis successfully completed.");
-      }
-    } catch (err: any) {
-      console.warn("[EarningsTracker] Gemini analysis fallback (possibly rate-limited):", err.message);
-      handleGeminiError(err, `Earnings-${symbol}`);
-    }
-  }
+  console.log(`[EarningsTracker] Local dynamic metric analysis finalized for ${symbol}. (No Gemini API invoked — 100% cost-mitigated)`);
 
   return {
     symbol,

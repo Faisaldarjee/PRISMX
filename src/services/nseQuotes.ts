@@ -291,7 +291,16 @@ async function fetchNSEStockQuoteDirect(symbol: string): Promise<QuoteData | nul
  * Dynamic NSE India quotes with 3 minute SQLite Cache mechanism
  */
 export async function getNSEQuote(symbol: string): Promise<QuoteData> {
-  const cleanSymbol = symbol.trim().toUpperCase();
+  let cleanSymbol = symbol.trim().toUpperCase();
+  const caretIdx = cleanSymbol.indexOf('^');
+  if (caretIdx > 0) {
+    cleanSymbol = cleanSymbol.substring(caretIdx).replace(/[()]/g, '').trim();
+  } else {
+    const parenMatch = cleanSymbol.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1]) {
+      cleanSymbol = parenMatch[1].replace(/[()]/g, '').trim();
+    }
+  }
   
   try {
     const cachedRow = db.prepare("SELECT data, fetched_at FROM quotes_cache WHERE symbol = ?").get(cleanSymbol) as any;

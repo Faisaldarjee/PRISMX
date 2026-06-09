@@ -23,10 +23,47 @@ export const ai = apiKey
     })
   : null;
 
+// Track daily usage inside global memory state
+const geminiUsage = {
+  count: 0,
+  date: new Date().toDateString(),
+  limit: 40  // Stay well under standard free tier limit
+};
+
+export function canCallGemini(): boolean {
+  const today = new Date().toDateString();
+  if (geminiUsage.date !== today) {
+    // Midnight reset
+    geminiUsage.count = 0;
+    geminiUsage.date = today;
+  }
+  return geminiUsage.count < geminiUsage.limit;
+}
+
+export function trackGeminiCall() {
+  const today = new Date().toDateString();
+  if (geminiUsage.date !== today) {
+    geminiUsage.count = 0;
+    geminiUsage.date = today;
+  }
+  geminiUsage.count++;
+  console.log(`[Gemini Quota Tracker] Completed call ${geminiUsage.count}/${geminiUsage.limit} for today.`);
+}
+
+export function getGeminiUsageCount(): number {
+  return geminiUsage.count;
+}
+
 let isRateLimited = false;
 let rateLimitResetTime = 0;
 
 export function isGeminiSuspended(): boolean {
+  // Check daily quota first
+  if (!canCallGemini()) {
+    console.warn(`[Gemini Quota Tracker] Daily limit of ${geminiUsage.limit} calls reached — suspending Gemini features globally.`);
+    return true;
+  }
+
   const now = Date.now();
   if (isRateLimited && now < rateLimitResetTime) {
     return true;

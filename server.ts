@@ -9,6 +9,7 @@ import * as dotenv from 'dotenv';
 import { spawn } from 'child_process';
 import cron from 'node-cron';
 
+import fs from 'fs';
 import { scanNifty500ForSwingSetups, getCachedSwingSetups, isCacheValid } from './src/services/bulkScanner';
 import { getNSEQuote, getMultipleQuotes } from './src/services/nseQuotes';
 
@@ -39,13 +40,14 @@ import { fetchCandles } from './src/services/candleService';
 import { getAllSectorStrengths, getTopStocksFromSector, SECTORS, getSectorForSymbol } from './src/services/sectorIntelligence';
 import { TechnicalAgent } from './src/services/agents/technicalAgent';
 import { detectPatterns } from './src/services/patternDetector';
+import { canCallGemini, trackGeminiCall, getGeminiUsageCount, isGeminiSuspended } from './src/services/geminiState';
 
 // Load env vars
 dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Run initial eager DB population in background
   runBackgroundSync().catch(err => {
@@ -95,9 +97,59 @@ async function startServer() {
   app.use(helmet({
     contentSecurityPolicy: false, // Disable for Vite dev
   }));
-  app.use(cors());
+
+  // Local-friendly CORS config
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    process.env.APP_URL
+  ].filter(Boolean) as string[];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin or in development mode
+      if (!origin || process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Permissive for flexibility
+    },
+    credentials: true
+  }));
+
   app.use(morgan('dev'));
   app.use(express.json());
+
+  // Temporary admin database export endpoint for local backups/downloads
+  app.get('/api/admin/export-db', (req, res) => {
+    const adminKey = req.header('X-Admin-Key');
+    const expectedKey = process.env.ADMIN_EXPORT_KEY || 'BangOnLocalBackup2026';
+    
+    if (!adminKey || adminKey !== expectedKey) {
+      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
+    }
+    
+    const dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');
+    if (!fs.existsSync(dbFilePath)) {
+      return res.status(404).json({ detail: 'SQLite database file not found on disk.' });
+    }
+    
+    console.log(`[Admin] Streaming predictions.db for local download...`);
+    res.download(dbFilePath, 'predictions.db', (err) => {
+      if (err) {
+        console.error('Error during database database streaming:', err);
+      }
+    });
+  });
+
+  // Gemini API Quota endpoint
+  app.get('/api/gemini/quota', (req, res) => {
+    res.json({
+      count: getGeminiUsageCount(),
+      limit: 40,
+      canCall: canCallGemini(),
+      suspended: isGeminiSuspended()
+    });
+  });
 
   // Direct REST API Handlers
   app.get('/api/assets', async (req, res) => {

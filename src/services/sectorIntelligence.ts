@@ -402,6 +402,130 @@ export function getSectorForSymbol(symbol: string): string {
   return 'OTHERS';
 }
 
+function getLocalSectorSentiment(
+  sectorKey: string, 
+  headlines: string[],
+  priceChange5D: number
+): { sentiment: string; summary: string; score: number } {
+  
+  // Keyword-based sentiment scoring
+  const BULLISH_WORDS = [
+    'growth', 'profit', 'beat', 'strong', 'surge', 'gain',
+    'record', 'expand', 'order win', 'upgrade', 'positive',
+    'rally', 'rise', 'boost', 'robust', 'outperform'
+  ];
+  
+  const BEARISH_WORDS = [
+    'loss', 'miss', 'weak', 'fall', 'decline', 'cut',
+    'downgrade', 'concern', 'risk', 'drop', 'poor',
+    'disappoint', 'pressure', 'slowdown', 'challenge'
+  ];
+  
+  // Score from headlines
+  let score = 0;
+  const allText = headlines.join(' ').toLowerCase();
+  
+  BULLISH_WORDS.forEach(word => {
+    if (allText.includes(word)) score += 1;
+  });
+  BEARISH_WORDS.forEach(word => {
+    if (allText.includes(word)) score -= 1;
+  });
+  
+  // Add price momentum signal
+  if (priceChange5D > 2) score += 2;
+  if (priceChange5D > 5) score += 2;
+  if (priceChange5D < -2) score -= 2;
+  if (priceChange5D < -5) score -= 2;
+  
+  // Normalize to -1 to +1
+  const normalized = Math.max(-1, Math.min(1, score / 5));
+  
+  // Generate summary from template
+  const sentiment = normalized > 0.2 ? 'positive' : 
+                    normalized < -0.2 ? 'negative' : 'neutral';
+  
+  const SECTOR_TEMPLATES = {
+    BANKING: {
+      positive: `Banking sector showing strength. ${priceChange5D > 0 ? `Nifty Bank up ${priceChange5D.toFixed(1)}% this week.` : ''} Credit growth and rate environment supportive.`,
+      negative: `Banking sector under pressure. NPA concerns and rate uncertainty weighing on sentiment.`,
+      neutral: `Banking sector consolidating. Monitor RBI policy and credit growth data.`
+    },
+    IT: {
+      positive: `IT sector outperforming. USD/INR weakness adding tailwind to export revenues.`,
+      negative: `IT sector facing headwinds. Deal pipeline concerns and USD strength hurting margins.`,
+      neutral: `IT sector mixed. Q4 results and US tech spending will be key catalysts to watch.`
+    },
+    AUTO: {
+      positive: `Auto sector in momentum. Strong sales data and EV transition driving optimism.`,
+      negative: `Auto sector slowing. Input cost pressures and demand concerns weighing on stocks.`,
+      neutral: `Auto sector neutral. Monthly sales data and commodity prices key to watch.`
+    },
+    PHARMA: {
+      positive: `Pharma sector bullish. USFDA approvals and export growth driving positive sentiment.`,
+      negative: `Pharma facing USFDA concerns. Pricing pressure in US market weighing on earnings outlook.`,
+      neutral: `Pharma sector stable. Domestic formulations strong, export market mixed.`
+    },
+    METALS: {
+      positive: `Metals sector gaining. China demand recovery and commodity price rise boosting sentiment.`,
+      negative: `Metals under pressure. Global demand concerns and China slowdown weighing on prices.`,
+      neutral: `Metals sector consolidating. Global commodity markets and China data key drivers.`
+    },
+    ENERGY: {
+      positive: `Energy sector strong. Crude oil prices and renewable energy push driving gains.`,
+      negative: `Energy sector weak. Crude price volatility and policy uncertainty creating headwinds.`,
+      neutral: `Energy sector stable. Oil prices and government policy key to monitor.`
+    },
+    FMCG: {
+      positive: `FMCG sector recovering. Rural demand revival and monsoon optimism supporting volumes.`,
+      negative: `FMCG sector sluggish. Urban slowdown and input cost inflation squeezing margins.`,
+      neutral: `FMCG sector mixed. Rural recovery vs urban slowdown — watch volume growth data.`
+    },
+    FINANCE: {
+      positive: `Financial services strong. Gold prices and credit growth supporting NBFCs and insurers.`,
+      negative: `Financial sector cautious. Asset quality concerns and regulatory headwinds.`,
+      neutral: `Financial sector stable. Credit costs and RBI policy key variables.`
+    },
+    REALTY: {
+      positive: `Realty sector bullish. Housing demand strong, pre-sales momentum continuing.`,
+      negative: `Realty sector facing pressure. Interest rates and affordability concerns weighing on demand.`,
+      neutral: `Realty sector consolidating. Watch quarterly pre-sales data and inventory levels.`
+    },
+    INFRA: {
+      positive: `Infrastructure sector strong. Government capex and order book growth driving momentum.`,
+      negative: `Infra sector cautious. Execution delays and working capital concerns.`,
+      neutral: `Infra sector stable. Order inflows and government spending pace key metrics.`
+    },
+    CHEMICALS: {
+      positive: `Chemicals sector recovering. China+1 strategy and specialty chemical demand rising.`,
+      negative: `Chemicals facing headwinds. Pricing pressure and Chinese competition weighing on margins.`,
+      neutral: `Chemicals sector mixed. Global demand and raw material costs key to watch.`
+    },
+    DEFENCE: {
+      positive: `Defence sector strong. Order wins and indigenization push driving sentiment.`,
+      negative: `Defence sector cautious. Execution timeline and order flow concerns.`,
+      neutral: `Defence sector stable. Watch government defence budget and order announcements.`
+    },
+    TELECOM: {
+      positive: `Telecom sector bullish. 5G rollout and ARPU improvement driving optimism.`,
+      negative: `Telecom facing pressure. Competition and debt levels weighing on sentiment.`,
+      neutral: `Telecom sector mixed. Subscriber data and tariff trends key to watch.`
+    },
+    METALS_ALT: {
+      positive: `Mining sector strong on commodity demand.`,
+      negative: `Mining sector weak on global demand concerns.`,
+      neutral: `Mining sector consolidating.`
+    }
+  };
+  
+  const template = SECTOR_TEMPLATES[sectorKey as keyof typeof SECTOR_TEMPLATES];
+  const summary = template 
+    ? template[sentiment as keyof typeof template]
+    : `${sectorKey} sector showing ${sentiment} momentum with ${priceChange5D > 0 ? '+' : ''}${priceChange5D.toFixed(1)}% 5-day price change.`;
+  
+  return { sentiment, summary, score: normalized };
+}
+
 /**
  * Calculates sector momentum and news sentiment step-by-step
  */
@@ -459,52 +583,10 @@ export async function getSectorMomentum(sectorKey: string): Promise<SectorMoment
     console.warn(`[SectorIntelligence] News fetching failed for ${sector.name}:`, err.message);
   }
 
-  // 3. Process Gemini sentiment analysis
-  let newsScore: 'positive' | 'negative' | 'neutral' = 'neutral';
-  let summary = `Stable technical indices maintain baseline tracking with standard market parameters.`;
-
-  const isSuspended = isGeminiSuspended();
-
-  if (ai && finalHeadlines.length > 0 && !isSuspended) {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Analyze the following Indian financial market news headlines for keywords related to the ${sector.name} sector:
-${finalHeadlines.map(h => "- " + h).join("\n")}
-
-Determine if overall news sentiment for ${sector.name} is positive, negative, or neutral.
-Also provide a 1-sentence micro market outlook detailing driver trends.
-
-Return strictly a valid JSON object matching this schema:
-{
-  "newsScore": "positive" | "negative" | "neutral",
-  "summary": "1 sentence micro summary"
-}`,
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
-
-      const parsed = JSON.parse(response.text || "{}");
-      if (parsed.newsScore) newsScore = parsed.newsScore;
-      if (parsed.summary) summary = parsed.summary;
-    } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      console.info(`[SectorIntelligence] Gemini sentiment analysis limits reached or exception for ${sector.name}:`, errMsg);
-      
-      handleGeminiError(err, `Sector-${sector.name}`);
-
-      // Rollback to dynamic local rule-based sentiment assessment
-      const fallback = getLocalSentimentAndSummary(sector.name, finalHeadlines);
-      newsScore = fallback.newsScore;
-      summary = fallback.summary;
-    }
-  } else {
-    // If Gemini is not configured, or headlines are empty, or Gemini is rate-limited:
-    const fallback = getLocalSentimentAndSummary(sector.name, finalHeadlines);
-    newsScore = fallback.newsScore;
-    summary = fallback.summary;
-  }
+  // 3. Process local sentiment analysis (No Gemini call - 100% savings)
+  const localSentiment = getLocalSectorSentiment(sectorKey, finalHeadlines, priceChange5D);
+  const newsScore = localSentiment.sentiment as 'positive' | 'negative' | 'neutral';
+  const summary = localSentiment.summary;
 
   // 4. Calculate Combined score [0 - 100]
   // Base starting reference

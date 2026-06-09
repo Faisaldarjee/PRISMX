@@ -596,16 +596,12 @@ export function AssetsList() {
                       <td className="py-3.5 px-4 font-mono text-[#8892A4] text-[11px]">{asset.last_date || 'N/A'}</td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center justify-end gap-3 w-full">
-                          {asset.type !== 'MACRO' ? (
-                            <Link 
-                              to={`/asset/${asset.symbol}`}
-                              className="text-[#E8C070] hover:text-white font-bold uppercase tracking-wider hover:underline inline-flex items-center gap-1 text-[10px]"
-                            >
-                              Scan Analysis &rarr;
-                            </Link>
-                          ) : (
-                            <span className="text-[#4A5568] italic text-[10px] uppercase">KPI Indices</span>
-                          )}
+                          <Link 
+                            to={`/asset/${asset.symbol}`}
+                            className="text-[#E8C070] hover:text-white font-bold uppercase tracking-wider hover:underline inline-flex items-center gap-1 text-[10px]"
+                          >
+                            Scan Analysis &rarr;
+                          </Link>
 
                           {asset.is_preset !== 1 && (
                             <button

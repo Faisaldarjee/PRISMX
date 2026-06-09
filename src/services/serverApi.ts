@@ -477,9 +477,45 @@ async function fetchSafeHistory(symbol: string, startDate: Date, endDate: Date):
   return [];
 }
 
+// Helper to extract a clean ticker suffix or index symbol from messy mixed input (e.g. "NIFTY 50^NSEI", "NIFTY 50 (^NSEI)")
+export function extractTickerFromMessyString(symbol: string): string {
+  if (!symbol) return "";
+  let cleaned = symbol.trim();
+  
+  // 1. If there is a caret '^' (but not at the very beginning)
+  const caretIdx = cleaned.indexOf('^');
+  if (caretIdx > 0) {
+    cleaned = cleaned.substring(caretIdx);
+  } else {
+    // 2. Look for parentheses (e.g. "Nifty 50 (NSEI)" or "Nifty 50 (NSEI.NS)")
+    const parenMatch = cleaned.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1]) {
+      cleaned = parenMatch[1];
+    } else {
+      // 3. Fallback: If there are spaces, the last word might be the ticker if it contains dots, equals, or is all uppercase
+      const words = cleaned.split(/\s+/);
+      if (words.length > 1) {
+        const lastWord = words[words.length - 1];
+        if (
+          lastWord.includes('.') || 
+          lastWord.includes('=') || 
+          lastWord.includes('^') || 
+          /^[A-Z0-9=&^.-]+$/.test(lastWord)
+        ) {
+          cleaned = lastWord;
+        }
+      }
+    }
+  }
+
+  // Final trim and clean common characters like brackets, parentheses, spaces
+  return cleaned.replace(/[()]/g, '').trim().toUpperCase();
+}
+
 // Convert input user query symbol (may omit .NS suffix) to resolved symbol
 export function resolveSymbol(symbol: string): string {
-  const symUpper = symbol.toUpperCase().trim();
+  const extracted = extractTickerFromMessyString(symbol);
+  const symUpper = extracted.toUpperCase().trim();
   // exact check
   if (ALL_SYMBOLS[symUpper]) return ALL_SYMBOLS[symUpper];
   const values = Object.values(ALL_SYMBOLS);
@@ -700,7 +736,8 @@ export async function getAssetsList(): Promise<any[]> {
 
 // Register and import a new custom symbol from Yahoo Finance dynamically
 export async function importAsset(symbol: string): Promise<any> {
-  const cleanedSymbol = symbol.trim().toUpperCase();
+  const extracted = extractTickerFromMessyString(symbol);
+  const cleanedSymbol = extracted.toUpperCase().trim();
   if (!cleanedSymbol) {
     throw new Error("Invalid empty symbol supplied.");
   }
@@ -1588,7 +1625,7 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
   const resolved = resolveSymbol(symbol);
   
   const cacheKey = `PRED_${resolved.toUpperCase().trim()}`;
-  const cacheTTL = 3 * 60 * 60 * 1000; // 3 hours (Symbol intelligence: 3h)
+  const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours (extended cache)
   
   if (!forceRefresh) {
     try {
@@ -2276,7 +2313,7 @@ export async function getFundamentalData(symbol: string): Promise<FundamentalDat
 export async function getGeminiMorningBriefing(selectedAsset: string): Promise<any> {
   const resolved = resolveSymbol(selectedAsset);
   const cacheKey = `BRIEFING_${resolved.toUpperCase().trim()}`;
-  const cacheTTL = 4 * 60 * 60 * 1000; // 4 hours
+  const cacheTTL = 12 * 60 * 60 * 1000; // 12 hours (extended cache)
   
   try {
     const row = db.prepare("SELECT * FROM intelligence_cache WHERE symbol = ?").get(cacheKey) as any;
@@ -2367,7 +2404,7 @@ export async function getGeminiSwingCard(symbol: string): Promise<any> {
 export async function getGeminiExplainSignal(symbol: string, signal: string): Promise<any> {
   const resolved = resolveSymbol(symbol);
   const cacheKey = `EXPLAIN_SIGNAL_${resolved.toUpperCase().trim()}_${signal.toUpperCase().trim()}`;
-  const cacheTTL = 6 * 60 * 60 * 1000; // 6 hours
+  const cacheTTL = 48 * 60 * 60 * 1000; // 48 hours (extended cache)
   
   try {
     const row = db.prepare("SELECT * FROM intelligence_cache WHERE symbol = ?").get(cacheKey) as any;
