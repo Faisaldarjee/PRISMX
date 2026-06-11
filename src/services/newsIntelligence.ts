@@ -6,7 +6,7 @@ import { fetchUpcomingEvents } from './earningsTracker';
 import { getBulkDealSignalForSymbol, getPromoterData, fetchBulkDeals } from './bulkInsiderTracker';
 import { fetchHeadlinesForSymbol } from './newsFetcher';
 import YahooFinanceClass from 'yahoo-finance2';
-import { ai, isGeminiSuspended, handleGeminiError, trackGeminiCall } from './geminiState';
+import { ai, isGeminiSuspended, handleGeminiError, trackGeminiCall, callGeneratedContentWithRetry } from './geminiState';
 
 const YahooFinance = (typeof YahooFinanceClass === 'function' ? YahooFinanceClass : (YahooFinanceClass as any).default) as any;
 const yahooFinance = new YahooFinance({
@@ -150,7 +150,7 @@ export async function getCompleteNewsIntelligence(): Promise<NewsMasterSummary> 
       const usYieldVal = macro?.us10yrYield?.value ?? 4.35;
       const vixVal = macro?.indiaVix?.value ?? 15.6;
       const crudeVal = macro?.crudeoil?.price ?? 78.5;
-      const response = await ai.models.generateContent({
+      const response = await callGeneratedContentWithRetry({
         model: 'gemini-3.5-flash',
         contents: `Synthesize the following Indian stock market docket into a master market summary and outlook report.
 DOCKET:
@@ -165,8 +165,6 @@ Return a structured JSON output of type NewsMasterSummary that maps exactly to t
           responseSchema: schema
         }
       });
-
-      trackGeminiCall();
       if (response && response.text) {
         const payload = JSON.parse(response.text.trim());
         macroBrief = payload.macroBrief;
@@ -185,7 +183,8 @@ Return a structured JSON output of type NewsMasterSummary that maps exactly to t
         console.log("[NewsIntelligence] Gemini master report generated successfully.");
       }
     } catch (err: any) {
-      console.warn("[NewsIntelligence] Gemini master generation fallback:", err.message);
+      const shortErr = err.message ? String(err.message).substring(0, 120) : "API Quota/Connection Limit";
+      console.log(`[NewsIntelligence] Gemini master generation fallback applied gracefully: ${shortErr}...`);
       handleGeminiError(err, "NewsMaster");
       if (cachedPayload) {
         console.log("[NewsIntelligence] Gemini master generation failed. Returning cached stale master summary report.");
@@ -315,7 +314,7 @@ export async function getSymbolIntelligence(symbol: string): Promise<SymbolIntel
         required: ["sentimentScore", "tradeSentiment", "fiveDayNarrative", "keyCatalysts", "swingStrategy"]
       };
 
-      const response = await ai.models.generateContent({
+      const response = await callGeneratedContentWithRetry({
         model: 'gemini-3.5-flash',
         contents: `Review this comprehensive equities dossier for the stock ${symKey}:
 - Last Quote Price: ₹${lastPrice.toFixed(2)}
@@ -329,8 +328,6 @@ Generate a short-horizon fiveDayNarrative (5-day outlook draft), key trading cat
           responseSchema: schema
         }
       });
-
-      trackGeminiCall();
       if (response && response.text) {
         const payload = JSON.parse(response.text.trim());
         score = Number(payload.sentimentScore) || score;
@@ -349,7 +346,8 @@ Generate a short-horizon fiveDayNarrative (5-day outlook draft), key trading cat
         console.log(`[SymbolIntelligence] Gemini complete for ticker ${symKey}.`);
       }
     } catch (err: any) {
-      console.warn(`[SymbolIntelligence] Fallback applied for ticker ${symKey}:`, err.message);
+      const shortErr = err.message ? String(err.message).substring(0, 120) : "API Quota/Connection Limit";
+      console.log(`[SymbolIntelligence] Fallback applied gracefully for ticker ${symKey}: ${shortErr}...`);
       handleGeminiError(err, "SymbolSpy-" + symKey);
       if (cachedPayload) {
         console.log(`[SymbolIntelligence] Gemini failed. Returning cached stale report for ticker ${symKey}.`);

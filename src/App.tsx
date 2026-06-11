@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { SmartSwing } from './pages/SmartSwing';
 import { AssetsList } from './pages/AssetsList';
@@ -86,15 +86,20 @@ export default function App() {
 }
 
 function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [marketHours, setMarketHours] = useState(getNSEStatus());
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showInterestSettings, setShowInterestSettings] = useState(false);
 
-  const [guestMode, setGuestMode] = useState(() => {
-    return localStorage.getItem('bangon_guest_mode') === 'true';
-  });
+  const [guestMode, setGuestMode] = useState(false);
+
+  useEffect(() => {
+    localStorage.removeItem('bangon_guest_mode');
+    setGuestMode(false);
+  }, []);
 
   const [onboarded, setOnboarded] = useState(() => {
     return localStorage.getItem('bangon_onboarded') === 'true';
@@ -261,9 +266,9 @@ function AppContent() {
   };
 
   // 1. Conditional landing screen & stand-alone legal systems
-  const isLegalPage = window.location.pathname === '/privacy' || 
-                       window.location.pathname === '/terms' || 
-                       window.location.pathname === '/disclaimer';
+  const isLegalPage = location.pathname === '/privacy' || 
+                       location.pathname === '/terms' || 
+                       location.pathname === '/disclaimer';
 
   if (isLegalPage) {
     return (
@@ -275,15 +280,18 @@ function AppContent() {
     );
   }
 
-  const isLandingOnlyRoute = window.location.pathname === '/landing' || window.location.pathname === '/home';
+  const isLandingOnlyRoute = location.pathname === '/landing' || location.pathname === '/home';
 
-  if (isLandingOnlyRoute || (!(user || guestMode))) {
+  if (isLandingOnlyRoute || !user) {
     return (
       <>
         <Landing 
           onEnterGuestMode={() => {
-            localStorage.setItem('bangon_guest_mode', 'true');
-            setGuestMode(true);
+            if (user) {
+              navigate('/');
+            } else {
+              setAuthModalOpen(true);
+            }
           }} 
           onOpenAuth={() => setAuthModalOpen(true)} 
         />
@@ -379,13 +387,9 @@ function AppContent() {
       <aside className="hidden md:flex flex-col w-56 bg-[rgba(255,255,255,0.02)] backdrop-blur-lg border-r border-[rgba(255,255,255,0.05)] p-5 z-40 shrink-0 select-none justify-between h-screen sticky top-0">
         <div className="space-y-6">
           {/* Logo segment */}
-          <div className="flex items-start gap-1 pb-4 border-b border-[rgba(255,255,255,0.04)]">
-            <Link to="/" className="flex items-center gap-2">
-              <BangOnLogo size={32} showCode={false} />
-              <span className="font-display font-medium text-[15px] tracking-[0.05em] text-[#F0F4FF] flex items-center gap-1">
-                BANG ON
-                <span className="text-[8px] px-1 py-0.2 border border-[#D4A843]/30 text-[#E8C070] rounded bg-[#D4A843]/5 font-data">AI</span>
-              </span>
+          <div className="flex items-start pb-4 border-b border-[rgba(255,255,255,0.04)]">
+            <Link to="/" className="flex items-center">
+              <BangOnLogo size={36} showText={true} />
             </Link>
           </div>
 

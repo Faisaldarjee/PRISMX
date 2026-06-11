@@ -100,8 +100,80 @@ export function handleGeminiError(err: any, context?: string) {
     errMsg.includes("billing");
 
   if (isRateLimit) {
-    console.warn(`[Gemini State] ${context ? `[${context}] ` : ''}Rate limit or Free Tier Quota exceeded. Suspending Gemini features globally for 3 minutes to prevent API blockages.`);
+    console.log(`[Gemini State] ${context ? `[${context}] ` : ''}Rate limit or Free Tier Quota reached. Suspending Gemini features globally for 3 minutes, using high-quality deterministic model fallbacks.`);
     isRateLimited = true;
     rateLimitResetTime = Date.now() + 180 * 1000; // 3 minutes cooling period
   }
 }
+
+export async function callGeneratedContentWithRetry(params: {
+  model: string;
+  contents: any;
+  config?: any;
+}, maxRetries = 3): Promise<any> {
+  if (!ai) throw new Error("API has not been configured.");
+  if (isGeminiSuspended()) throw new Error("API is temporarily suspended due to rate limiting.");
+
+  const modelsToTry = [params.model, "gemini-flash-latest", "gemini-3.5-flash"];
+  const models = Array.from(new Set(modelsToTry));
+
+  let lastError: any = null;
+
+  for (const model of models) {
+    if (isGeminiSuspended()) break;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          ...params,
+          model,
+        });
+        trackGeminiCall();
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        const msg = (error?.message || String(error)).toLowerCase();
+        
+        const isQuotaExceeded = msg.includes("429") || 
+                                msg.includes("quota") || 
+                                msg.includes("exceeded") ||
+                                msg.includes("rate limit") ||
+                                msg.includes("exhausted") ||
+                                msg.includes("resource_exhausted");
+
+        const isTransient = msg.includes("503") || 
+                            msg.includes("demand") || 
+                            msg.includes("temporary") ||
+                            msg.includes("unavailable") ||
+                            isQuotaExceeded;
+
+        console.warn(`[Gemini API] Attempt ${attempt} failed for model "${model}". Error: ${error?.message || msg}. Transient? ${isTransient}`);
+
+        if (isQuotaExceeded) {
+          // Immediately suspend Gemini globally and abort to avoid spamming the rate-limited API key
+          handleGeminiError(error, `Generate-Quick-Suspend-${model}`);
+          break; // Break current model's attempt loop
+        }
+
+        if (!isTransient && attempt === maxRetries) {
+          break;
+        }
+
+        if (attempt < maxRetries) {
+          const is503 = msg.includes("503") || msg.includes("demand") || msg.includes("unavailable");
+          const baseDelay = is503 ? 1500 : 1000;
+          const delay = attempt * baseDelay + Math.random() * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  // If we reach here, all retries and fallback models failed. Mark Gemini as suspended globally
+  if (lastError) {
+    handleGeminiError(lastError, `Agent-Fallback-Exhausted`);
+  }
+
+  throw lastError || new Error("Failed to generate content after retry & fallback models");
+}
+

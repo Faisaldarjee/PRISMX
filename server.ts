@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import 'express-async-errors';
 import * as dotenv from 'dotenv';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import { spawn } from 'child_process';
 import cron from 'node-cron';
 
@@ -119,13 +120,26 @@ async function startServer() {
   app.use(morgan('dev'));
   app.use(express.json());
 
+  // Helper to safely strip quotes from env variables (which are sometimes injected with literal quotes)
+  const cleanEnvVal = (val: string | undefined): string => {
+    if (!val) return '';
+    let trimmed = val.trim();
+    while (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      trimmed = trimmed.substring(1, trimmed.length - 1);
+    }
+    return trimmed.trim();
+  };
+
   // Temporary admin database export endpoint for local backups/downloads
   app.get('/api/admin/export-db', (req, res) => {
-    const adminKey = req.header('X-Admin-Key');
+    const adminKey = req.header('X-Admin-Key') || req.query.key;
     const expectedKey = process.env.ADMIN_EXPORT_KEY || 'BangOnLocalBackup2026';
     
     if (!adminKey || adminKey !== expectedKey) {
-      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
+      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key or ?key= parameter is required.' });
     }
     
     const dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');

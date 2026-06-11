@@ -92,14 +92,8 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
       }`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           {/* Logo segment */}
-          <div className="flex items-center gap-2 cursor-pointer z-10" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <BangOnLogo size={36} showCode={false} />
-            <span className="font-display font-semibold text-lg tracking-[0.05em] text-[#F0F4FF] flex items-center gap-1.5 ml-1">
-              BANG ON
-              <span className="text-[9px] px-1.5 py-0.5 border border-[#D4A843]/30 text-[#E8C070] rounded bg-[#D4A843]/5 font-data select-none">
-                AI
-              </span>
-            </span>
+          <div className="flex items-center cursor-pointer z-10 animate-fade-in" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <BangOnLogo size={36} showText={true} />
           </div>
 
           {/* Nav links */}
@@ -128,20 +122,12 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
                 Enter Dashboard <ChevronRight size={13} />
               </button>
             ) : (
-              <>
-                <button 
-                  onClick={onOpenAuth}
-                  className="text-[#8892A4] hover:text-[#F0F4FF] text-[13.5px] font-medium tracking-wide transition-colors cursor-pointer"
-                >
-                  Sign in
-                </button>
-                <button 
-                  onClick={onEnterGuestMode}
-                  className="py-1.5 px-4 bg-transparent border border-[rgba(255,255,255,0.08)] hover:border-[#D4A843]/30 hover:bg-[#D4A843]/5 text-[#E8C070] text-xs font-mono rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  Try Free <ArrowRight size={13} />
-                </button>
-              </>
+              <button 
+                onClick={onEnterGuestMode}
+                className="py-1.5 px-4 bg-transparent border border-[rgba(255,255,255,0.08)] hover:border-[#D4A843]/30 hover:bg-[#D4A843]/5 text-[#E8C070] text-xs font-mono rounded-lg transition-all cursor-pointer flex items-center gap-1.5 animate-pulse"
+              >
+                Try Free <ArrowRight size={13} />
+              </button>
             )}
           </div>
 
@@ -178,20 +164,12 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
                   Enter Dashboard
                 </button>
               ) : (
-                <>
-                  <button 
-                    onClick={() => { setMobileMenuOpen(false); onOpenAuth(); }}
-                    className="w-full py-2 bg-transparent border border-white/10 text-[#F0F4FF] text-xs text-center rounded-lg cursor-pointer font-mono"
-                  >
-                    SIGN_IN
-                  </button>
-                  <button 
-                    onClick={onEnterGuestMode}
-                    className="w-full py-2 bg-[#D4A843]/10 border border-[#D4A843]/40 text-[#E8C070] text-xs text-center font-bold rounded-lg cursor-pointer"
-                  >
-                    Open Live Guest Mode
-                  </button>
-                </>
+                <button 
+                  onClick={() => { setMobileMenuOpen(false); onEnterGuestMode(); }}
+                  className="w-full py-2 bg-[#D4A843] text-black text-xs text-center font-bold rounded-lg cursor-pointer animate-pulse"
+                >
+                  Try Free
+                </button>
               )}
             </div>
           </div>
@@ -371,7 +349,7 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
                     const isSell = setup.signal === 'SELL';
                     const scoreVal = Math.round(setup.setupScore || setup.score || 80);
                     return (
-                      <tr key={setup.symbol} className="data-row hover:bg-white/[0.01] transition-colors relative">
+                      <tr key={setup.symbol} onClick={onOpenAuth} className="data-row hover:bg-white/[0.01] transition-colors relative cursor-pointer">
                         <td className="py-4 px-3 font-data text-xs text-[#E8C070] relative">
                           #{index + 1}
                           <span className="absolute left-1 top-1/2 -translate-y-1/2 flex h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" title="LIVE DATA" />
@@ -681,9 +659,8 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
       <footer className="py-12 bg-[#05070C] text-[#4A5568] px-6 border-t border-[rgba(255,255,255,0.04)]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <BangOnLogo size={24} showCode={false} />
-            <span className="text-xs font-display font-medium uppercase text-[#8892A4] tracking-wider">BANG ON AI</span>
-            <span className="text-[11px] font-data">// WEALTH_INTEL</span>
+            <BangOnLogo size={28} showText={true} />
+            <span className="text-[11px] font-data text-slate-500">// WEALTH_INTEL</span>
           </div>
 
           <div className="flex items-center gap-6 text-[11px] font-data">
@@ -693,7 +670,7 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
           </div>
 
           <div className="text-[10px] font-body text-center md:text-right max-w-xs leading-normal">
-            ⚠️ Disclaimer: Bang On operates strictly as an educational learning study module. We are NOT SEBI registered. All analytics represent simulated metrics.
+            ⚠️ Disclaimer: Bang ON AI is an AI-powered analytics platform and NOT a SEBI-registered investment advisor. All tools and insights are provided for educational and research purposes only
           </div>
         </div>
       </footer>

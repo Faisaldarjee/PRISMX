@@ -1,0 +1,96 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main Radial Background Vignette - Metallic & Deep -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+      <stop offset="0%" stop-color="#1B2436" />
+      <stop offset="50%" stop-color="#0B101A" />
+      <stop offset="100%" stop-color="#04060B" />
+    </radialGradient>
+
+    <!-- Deep Muted Gold Gradient -->
+    <linearGradient id="goldDeep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7E5F1E" />
+      <stop offset="50%" stop-color="#AF832D" />
+      <stop offset="100%" stop-color="#4A3610" />
+    </linearGradient>
+
+    <!-- Premium Metallic Gold Gradient with Chromium Sheen -->
+    <linearGradient id="goldMetallic" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#87621B" />
+      <stop offset="20%" stop-color="#D4A843" />
+      <stop offset="40%" stop-color="#FFF4CD" />
+      <stop offset="60%" stop-color="#EBC365" />
+      <stop offset="80%" stop-color="#9C7426" />
+      <stop offset="100%" stop-color="#DFB44F" />
+    </linearGradient>
+
+    <!-- Liquid Silver/Steel Metallic Gradient for concentric rings -->
+    <linearGradient id="silverMetallic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A4756" />
+      <stop offset="25%" stop-color="#7F94A8" />
+      <stop offset="50%" stop-color="#E6ECF5" />
+      <stop offset="75%" stop-color="#5E7085" />
+      <stop offset="100%" stop-color="#252E3B" />
+    </linearGradient>
+
+    <!-- Bright Specular White Highlight for Chrome Effect -->
+    <linearGradient id="chromeHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Base Plate (Deep radial metallic container with a glowing gold edge) -->
+  <circle cx="100" cy="100" r="95" fill="url(#bgGrad)" stroke="url(#goldMetallic)" stroke-width="4.5" />
+  <circle cx="100" cy="100" r="90" stroke="#101827" stroke-width="1" fill="none" opacity="0.6" />
+
+  <!-- 2. Concentric Target Rings -->
+  <!-- Outer Silver Ring -->
+  <circle cx="100" cy="100" r="64" stroke="url(#silverMetallic)" stroke-width="8" fill="none" />
+  <circle cx="100" cy="100" r="68" stroke="url(#goldDeep)" stroke-width="1" fill="none" />
+  <circle cx="100" cy="100" r="60" stroke="url(#goldDeep)" stroke-width="1" fill="none" />
+  
+  <!-- Inner Silver Ring -->
+  <circle cx="100" cy="100" r="42" stroke="url(#silverMetallic)" stroke-width="4.5" fill="none" />
+  <circle cx="100" cy="100" r="44.25" stroke="url(#goldDeep)" stroke-width="0.75" fill="none" />
+
+  <!-- 3. Crosshair Target Ticks -->
+  <rect x="95" y="16" width="10" height="26" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1" rx="1.5" />
+  <rect x="96.5" y="18" width="2.5" height="22" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <rect x="95" y="158" width="10" height="26" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1" rx="1.5" />
+  <rect x="96.5" y="160" width="2.5" height="22" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <rect x="16" y="95" width="26" height="10" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1" rx="1.5" />
+  <rect x="18" y="96.5" width="22" height="2.5" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <rect x="158" y="95" width="26" height="10" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1" rx="1.5" />
+  <rect x="160" y="96.5" width="22" height="2.5" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <!-- Center Target Core Bullseye -->
+  <circle cx="100" cy="100" r="14" fill="url(#goldDeep)" stroke="url(#goldMetallic)" stroke-width="1.5" />
+  <circle cx="100" cy="100" r="7" fill="url(#goldMetallic)" />
+
+  <!-- 4. Candlesticks (Overlapping right side) -->
+  <!-- Short Candlestick (Left) -->
+  <line x1="112" y1="56" x2="112" y2="106" stroke="url(#goldDeep)" stroke-width="3.5" stroke-linecap="round" />
+  <line x1="112" y1="56" x2="112" y2="106" stroke="url(#goldMetallic)" stroke-width="2" stroke-linecap="round" />
+  <rect x="106" y="65" width="12" height="32" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1.5" rx="1.5" />
+  <rect x="107.5" y="67" width="2.5" height="28" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <!-- Tall Candlestick (Right) -->
+  <line x1="128" y1="42" x2="128" y2="92" stroke="url(#goldDeep)" stroke-width="3.5" stroke-linecap="round" />
+  <line x1="128" y1="42" x2="128" y2="92" stroke="url(#goldMetallic)" stroke-width="2" stroke-linecap="round" />
+  <rect x="122" y="50" width="12" height="34" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="1.5" rx="1.5" />
+  <rect x="123.5" y="52" width="2.5" height="30" fill="url(#chromeHighlight)" rx="0.5" />
+
+  <!-- 5. Breakout Zig-Zag and Arrow -->
+  <path d="M 52 148 L 92 108 L 108 118 L 150 63" stroke="url(#goldDeep)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+  <path d="M 52 148 L 92 108 L 108 118 L 150 63" stroke="url(#goldMetallic)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 52 148 L 92 108 L 108 118 L 150 63" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3" />
+
+  <!-- 3D Faceted Arrowhead -->
+  <polygon points="174,38 143,65 152,56" fill="url(#goldDeep)" stroke="url(#goldDeep)" stroke-width="0.5" />
+  <polygon points="174,38 152,56 142,46" fill="url(#goldMetallic)" stroke="url(#goldDeep)" stroke-width="0.5" />
+  <line x1="174" y1="38" x2="152" y2="56" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+</svg>

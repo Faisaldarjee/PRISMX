@@ -63,8 +63,8 @@ const parser = new Parser({
 // RSS feed sources
 const FEEDS = [
   'https://economictimes.indiatimes.com/markets/rss.cms',
-  'https://www.moneycontrol.com/rss/business.xml',
-  'https://www.livemint.com/rss/markets'
+  'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en',
+  'https://news.google.com/rss/search?q=Nifty+sensex+markets+india&hl=en-IN&gl=IN&ceid=IN:en'
 ];
 
 interface RSSItem {
@@ -154,7 +154,7 @@ export async function fetchHeadlinesForSymbol(symbol: string): Promise<string[]>
         if (typeof data === 'string') {
           const trimmed = data.trim();
           if (trimmed.startsWith('<!DOCTYPE html') || trimmed.toLowerCase().startsWith('<html') || trimmed.includes('<html')) {
-            console.warn(`[NewsFetcher] Skip parsing HTML/WAF challenge response from ${url}`);
+            console.log(`[NewsFetcher] Skip parsing HTML/WAF challenge response from ${url}`);
             return [];
           }
         }
@@ -162,7 +162,7 @@ export async function fetchHeadlinesForSymbol(symbol: string): Promise<string[]>
         const feed = await parser.parseString(data);
         return feed.items || [];
       } catch (feedError: any) {
-        console.warn(`[NewsFetcher] failed to fetch feed from ${url}:`, feedError.message);
+        console.log(`[NewsFetcher] temporary news feed fetch issue for ${url}: ${feedError.message}`);
         return [];
       }
     });
@@ -170,7 +170,7 @@ export async function fetchHeadlinesForSymbol(symbol: string): Promise<string[]>
     const results = await Promise.all(feedPromises);
     allItems = results.flat();
   } catch (err: any) {
-    console.error(`[NewsFetcher] parallel feed fetching error:`, err);
+    console.log(`[NewsFetcher] parallel feed fetching warning:`, err.message || err);
   }
 
   const keywords = getKeywordsForSymbol(cleanSymbol);

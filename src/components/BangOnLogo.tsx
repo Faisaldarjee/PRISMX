@@ -13,82 +13,120 @@ export const BangOnLogo: React.FC<BangOnLogoProps> = ({
 }) => {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* High fidelity SVG of the Bang On target arrow combo logo */}
+      {/* High fidelity SVG of the Bang On metal gold target & candlestick breakout logo */}
       <svg 
         width={size} 
         height={size} 
         viewBox="0 0 200 200" 
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0"
+        className="shrink-0 drop-shadow-lg"
       >
-        {/* Ticks of Crosshair (White) */}
-        {/* Top tick */}
-        <line x1="100" y1="25" x2="100" y2="55" stroke="white" strokeWidth="6" strokeLinecap="round" />
-        {/* Bottom tick */}
-        <line x1="100" y1="145" x2="100" y2="175" stroke="white" strokeWidth="6" strokeLinecap="round" />
-        {/* Left tick */}
-        <line x1="25" y1="100" x2="55" y2="100" stroke="white" strokeWidth="6" strokeLinecap="round" />
-        {/* Right tick */}
-        <line x1="145" y1="100" x2="175" y2="100" stroke="white" strokeWidth="6" strokeLinecap="round" />
+        {/* 1. Base Plate (Deep black/obsidian matte container with a brilliant polished gold border) */}
+        <circle cx="100" cy="100" r="95" fill="#060913" stroke="#D4A843" strokeWidth="5" />
+        <circle cx="100" cy="100" r="88" stroke="#1E293B" strokeWidth="2" fill="none" />
 
-        {/* Circular Target Ring (Vibrant Orange) */}
-        <circle cx="100" cy="100" r="48" stroke="#FF5500" strokeWidth="6.5" fill="none" />
-
-        {/* Candlesticks inside (White & Dark Orange/Red) */}
+        {/* 2. Concentric Target Rings (Silver & Gold nested details) */}
+        {/* Outer Silver Ring */}
+        <circle cx="100" cy="100" r="64" stroke="#64748B" strokeWidth="8" fill="none" />
+        <circle cx="100" cy="100" r="68" stroke="#92400E" strokeWidth="1" fill="none" />
+        <circle cx="100" cy="100" r="60" stroke="#92400E" strokeWidth="1" fill="none" />
         
-        {/* Candle 1 (Orange/Red decrease, lower left overlaying the ring) */}
-        <line x1="68" y1="110" x2="68" y2="150" stroke="#FF5500" strokeWidth="2.5" />
-        <rect x="63" y="120" width="10" height="22" fill="#FF5500" rx="2" />
+        {/* Inner Silver Ring */}
+        <circle cx="100" cy="100" r="42" stroke="#475569" strokeWidth="4" fill="none" />
+        <circle cx="100" cy="100" r="44" stroke="#D4A843" strokeWidth="0.75" fill="none" opacity="0.8" />
 
-        {/* Candle 2 (White increase) */}
-        <line x1="82" y1="85" x2="82" y2="135" stroke="white" strokeWidth="2.5" />
-        <rect x="77" y="95" width="10" height="28" fill="white" rx="2" />
+        {/* 3. Crosshair Target Ticks */}
+        {/* Top Tick */}
+        <rect x="95" y="16" width="10" height="26" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="97" y="18" width="2.5" height="22" fill="#FDE047" rx="0.5" />
 
-        {/* Candle 3 (White increase) */}
-        <line x1="97" y1="75" x2="97" y2="125" stroke="white" strokeWidth="2.5" />
-        <rect x="92" y="85" width="10" height="28" fill="white" rx="2" />
+        {/* Bottom Tick */}
+        <rect x="95" y="158" width="10" height="26" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="97" y="160" width="2.5" height="22" fill="#FDE047" rx="0.5" />
 
-        {/* Candle 4 (Orange/Red decrease) */}
-        <line x1="112" y1="80" x2="112" y2="115" stroke="#FF5500" strokeWidth="2.5" />
-        <rect x="107" y="88" width="10" height="18" fill="#FF5500" rx="2" />
+        {/* Left Tick */}
+        <rect x="16" y="95" width="26" height="10" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="18" y="97" width="22" height="2.5" fill="#FDE047" rx="0.5" />
 
-        {/* Candle 5 (White increase / arrow pivot source) */}
-        <line x1="127" y1="62" x2="127" y2="110" stroke="white" strokeWidth="2.5" />
-        <rect x="122" y="70" width="10" height="22" fill="white" rx="2" />
+        {/* Right Tick */}
+        <rect x="158" y="95" width="26" height="10" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="160" y="97" width="22" height="2.5" fill="#FDE047" rx="0.5" />
 
-        {/* Breakout Arrow (Vibrant Orange, breaking out of target at 45 degree angle) */}
-        {/* Diagonal thick arrow shaft */}
+        {/* Center Target Core Bullseye */}
+        <circle cx="100" cy="100" r="14" fill="#64748B" stroke="#D4A843" strokeWidth="1.5" />
+        <circle cx="100" cy="100" r="7" fill="#FDE047" />
+
+        {/* 4. Candlesticks (Overlapping right side) */}
+        {/* Short Candlestick (Left) */}
+        {/* Wick */}
+        <line x1="112" y1="56" x2="112" y2="106" stroke="#92400E" strokeWidth="3" strokeLinecap="round" />
+        <line x1="112" y1="56" x2="112" y2="106" stroke="#D4A843" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Real Body */}
+        <rect x="106" y="65" width="12" height="32" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="108" y="67" width="2.5" height="28" fill="#FDE047" rx="0.5" />
+
+        {/* Tall Candlestick (Right) */}
+        {/* Wick */}
+        <line x1="128" y1="42" x2="128" y2="92" stroke="#92400E" strokeWidth="3" strokeLinecap="round" />
+        <line x1="128" y1="42" x2="128" y2="92" stroke="#D4A843" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Real Body */}
+        <rect x="122" y="50" width="12" height="34" fill="#D4A843" stroke="#92400E" strokeWidth="1.5" rx="1.5" />
+        <rect x="124" y="52" width="2.5" height="30" fill="#FDE047" rx="0.5" />
+
+        {/* 5. Breakout Zig-Zag and Arrow */}
+        {/* Heavy Underlay/Shadow for the trend arrow path */}
         <path 
-          d="M 125 105 L 142 80 L 175 42" 
-          stroke="#FF5500" 
-          strokeWidth="8" 
+          d="M 52 148 L 92 108 L 108 118 L 150 63" 
+          stroke="#412904" 
+          strokeWidth="15" 
           strokeLinecap="round" 
           strokeLinejoin="round" 
+          opacity="0.9"
         />
-        
-        {/* Dynamic Arrowhead pointing upper-right */}
+        {/* Foreground dynamic gold trend path */}
         <path 
-          d="M 150 42 L 176 41 L 175 67" 
-          fill="none"
-          stroke="#FF5500" 
+          d="M 52 148 L 92 108 L 108 118 L 150 63" 
+          stroke="#D4A843" 
           strokeWidth="10" 
           strokeLinecap="round" 
           strokeLinejoin="round" 
         />
+        <path 
+          d="M 52 148 L 92 108 L 108 118 L 150 63" 
+          stroke="#FDE047" 
+          strokeWidth="3.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+        />
+
+        {/* 3D Faceted Arrowhead */}
+        {/* Shaded bottom-right facet */}
+        <polygon 
+          points="174,38 143,65 152,56" 
+          fill="#D4A843" 
+          stroke="#92400E" 
+          strokeWidth="0.5" 
+        />
+        {/* Highlighted top-left facet */}
+        <polygon 
+          points="174,38 152,56 142,46" 
+          fill="#FDE047" 
+          stroke="#D4A843" 
+          strokeWidth="0.5" 
+        />
+        {/* Core highlight line */}
+        <line x1="174" y1="38" x2="152" y2="56" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
       </svg>
 
       {showText && (
         <div className="flex flex-col select-none">
           <div className="flex items-center gap-1.5 font-bold">
-            <span className="font-mono text-xs font-black uppercase tracking-[0.22em] text-[#FF5500]">
-              BANG ON
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-mono rounded-md font-bold border border-emerald-900/20">
-              AI
+            <span className="font-mono text-xs font-black uppercase tracking-[0.22em] text-[#E8C070]">
+              BANG ON <span className="text-emerald-400">AI</span>
             </span>
           </div>
-          <span className="text-[9px] font-black tracking-widest text-slate-450 uppercase -mt-0.5">
+          <span className="text-[9px] font-black tracking-widest text-[#8892A4] uppercase -mt-0.5">
             SYSTEMATIC WEALTH
           </span>
         </div>

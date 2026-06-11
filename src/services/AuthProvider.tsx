@@ -7,6 +7,8 @@ import {
   signOut, 
   sendPasswordResetEmail,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   updateProfile
 } from 'firebase/auth';
@@ -74,7 +76,7 @@ interface AuthContextType {
   notifications: SignalNotification[];
   signUp: (emailStr: string, passwordStr: string, name: string) => Promise<void>;
   logIn: (emailStr: string, passwordStr: string) => Promise<void>;
-  logInGoogle: () => Promise<void>;
+  logInGoogle: (useRedirect?: boolean) => Promise<void>;
   logOut: () => Promise<void>;
   passwordReset: (emailStr: string) => Promise<void>;
   toggleWatchlist: (symbol: string) => Promise<void>;
@@ -103,6 +105,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [watchlist, setWatchlist] = useState<string[]>(['GOLDBEES.NS', 'SILVERBEES.NS']);
   const [portfolio, setPortfolio] = useState<PortfolioPurchase[]>([]);
   const [notifications, setNotifications] = useState<SignalNotification[]>([]);
+
+  // Synchronize Google Sign-In redirect result on mount
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log('Redirect authentication succeeded:', result.user);
+        }
+      })
+      .catch((error) => {
+        console.warn('Redirect authentication error:', error);
+      });
+  }, []);
 
   // Local storage guest fallbacks when offline or unauthenticated
   useEffect(() => {
@@ -291,8 +306,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const logInGoogle = async () => {
+  const logInGoogle = async (useRedirect = false) => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    if (useRedirect) {
+      return signInWithRedirect(auth, provider);
+    }
     return signInWithPopup(auth, provider).then(() => {
       // Success popup login
     });

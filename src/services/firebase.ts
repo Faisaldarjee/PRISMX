@@ -21,10 +21,14 @@ const cleanEnvVar = (value: any): string => {
   return trimmed.trim();
 };
 
+const rawProjectId = cleanEnvVar(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+const resolvedProjectId = rawProjectId || 'bangonlocal';
+const defaultAuthDomain = cleanEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || `${resolvedProjectId}.firebaseapp.com`;
+
 const firebaseConfig = {
   apiKey: cleanEnvVar(import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain: cleanEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: cleanEnvVar(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  authDomain: defaultAuthDomain,
+  projectId: resolvedProjectId,
   storageBucket: cleanEnvVar(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
   messagingSenderId: cleanEnvVar(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
   appId: cleanEnvVar(import.meta.env.VITE_FIREBASE_APP_ID),
@@ -35,10 +39,14 @@ console.log('[Firebase Init] config keys loaded:', Object.keys(firebaseConfig).r
   return acc;
 }, {} as Record<string, string>));
 
-const databaseId = cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_ID) || 'default';
+const databaseId = cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_ID);
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, databaseId);
+
+// Safe initialization for the default database vs custom multi-database IDs
+export const db = (databaseId && databaseId !== 'default' && databaseId !== '(default)') 
+  ? getFirestore(app, databaseId) 
+  : getFirestore(app);
 export const auth = getAuth();
 
 export enum OperationType {
