@@ -489,20 +489,6 @@ function AppContent() {
             </NavLink>
 
             <NavLink 
-              to="/intelligence" 
-              className={({ isActive }) => 
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-2 font-body text-[12.5px] transition-all duration-150 ${
-                  isActive 
-                    ? 'nav-active text-white font-medium' 
-                    : 'border-l-transparent text-[#8892A4] hover:text-white hover:bg-[rgba(255,255,255,0.02)]'
-                }`
-              }
-            >
-              <Sparkles size={14} className="nav-icon font-semibold" />
-              Intelligence Hub
-            </NavLink>
-
-            <NavLink 
               to="/sip" 
               className={({ isActive }) => 
                 `flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-2 font-body text-[12.5px] transition-all duration-150 ${
@@ -648,19 +634,6 @@ function AppContent() {
               >
                 <Layers size={15} />
                 Assets index
-              </NavLink>
-
-              <NavLink 
-                to="/intelligence" 
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) => 
-                  `flex items-center gap-3 px-4 py-3 rounded-xl font-mono uppercase tracking-wider text-xs font-bold ${
-                    isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-850'
-                  }`
-                }
-              >
-                <Sparkles size={15} />
-                Intelligence Hub
               </NavLink>
 
               <NavLink 
