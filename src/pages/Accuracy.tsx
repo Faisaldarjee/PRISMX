@@ -164,7 +164,7 @@ export function Accuracy() {
       return {
         key: monthKey,
         label,
-        value: Number((returnVal as number).toFixed(2))
+        value: Number((Number(returnVal) || 0).toFixed(2))
       };
     }).sort((a, b) => a.key.localeCompare(b.key));
   }, [advanced, isBuilding]);
@@ -348,7 +348,11 @@ export function Accuracy() {
                 </span>
               </div>
               <div className="mt-2">
-                <span className="text-xl md:text-2xl font-bold font-mono gradient-text-gold">{accuracy.overall_accuracy?.toFixed(1)}%</span>
+                <span className="text-xl md:text-2xl font-bold font-mono gradient-text-gold">
+                  {typeof accuracy.overall_accuracy === 'number' && !isNaN(accuracy.overall_accuracy) 
+                    ? `${accuracy.overall_accuracy.toFixed(1)}%` 
+                    : '—'}
+                </span>
                 <p className="text-[9px] text-[#4A5568] mt-0.5">Ratio of correct target hits</p>
               </div>
             </div>

@@ -142,7 +142,10 @@ async function startServer() {
       return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key or ?key= parameter is required.' });
     }
     
-    const dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');
+    let dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');
+    if (!fs.existsSync(dbFilePath)) {
+      dbFilePath = path.join('/tmp', 'predictions.db');
+    }
     if (!fs.existsSync(dbFilePath)) {
       return res.status(404).json({ detail: 'SQLite database file not found on disk.' });
     }

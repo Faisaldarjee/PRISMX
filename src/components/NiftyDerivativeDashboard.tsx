@@ -468,7 +468,7 @@ export function NiftyDerivativeDashboard({ prediction }: NiftyDerivativeDashboar
                           </span>
                         </td>
                         <td className="py-3 text-slate-300">₹{leg.strike}</td>
-                        <td className="py-3 text-slate-300">₹{leg.ltp.toFixed(2)}</td>
+                        <td className="py-3 text-slate-300">₹{Number(leg.ltp || 0).toFixed(2)}</td>
                         <td className={`py-3 text-right font-extrabold ${legPaidColor}`}>
                           {legPaid}₹{premiumCost.toLocaleString('en-IN')}
                         </td>
@@ -617,8 +617,13 @@ export function NiftyDerivativeDashboard({ prediction }: NiftyDerivativeDashboar
             <tbody className="divide-y divide-white/[0.02]">
               {optionChain.map((row, idx) => {
                 const isAtm = row.strike === centerStrike;
-                const ceOiInCr = (row.ceOi / 10000000).toFixed(2);
-                const peOiInCr = (row.peOi / 10000000).toFixed(2);
+                const ceOiValue = Number(row.ceOi) || 0;
+                const peOiValue = Number(row.peOi) || 0;
+                const ceOiInCr = (ceOiValue / 10000000).toFixed(2);
+                const peOiInCr = (peOiValue / 10000000).toFixed(2);
+
+                const ceLtpValue = Number(row.ceLtp) || 0;
+                const peLtpValue = Number(row.peLtp) || 0;
 
                 return (
                   <tr 
@@ -628,36 +633,36 @@ export function NiftyDerivativeDashboard({ prediction }: NiftyDerivativeDashboar
                     }`}
                   >
                     {/* Calls OI */}
-                    <td className="py-3.5 text-slate-400">{(row.ceOi).toLocaleString('en-IN')}</td>
+                    <td className="py-3.5 text-slate-400">{ceOiValue.toLocaleString('en-IN')}</td>
                     {/* Calls OI Chg */}
-                    <td className={`py-3.5 ${row.ceOiChg >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
-                      {row.ceOiChg >= 0 ? '+' : ''}{row.ceOiChg}%
+                    <td className={`py-3.5 ${Number(row.ceOiChg || 0) >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {Number(row.ceOiChg || 0) >= 0 ? '+' : ''}{row.ceOiChg || 0}%
                     </td>
                     {/* Calls LTP */}
-                    <td className="py-3.5 text-cyan-400 font-bold">₹{row.ceLtp.toFixed(2)}</td>
+                    <td className="py-3.5 text-cyan-400 font-bold">₹{ceLtpValue.toFixed(2)}</td>
                     {/* Calls Price change */}
-                    <td className={`py-3.5 border-r border-white/[0.04] ${row.ceChg >= 0 ? 'text-emerald-450' : 'text-rose-450'}`}>
-                      {row.ceChg >= 0 ? '+' : ''}{row.ceChg}%
+                    <td className={`py-3.5 border-r border-white/[0.04] ${Number(row.ceChg || 0) >= 0 ? 'text-emerald-450' : 'text-rose-450'}`}>
+                      {Number(row.ceChg || 0) >= 0 ? '+' : ''}{row.ceChg || 0}%
                     </td>
 
                     {/* HIdhlighted Strike price */}
                     <td className={`py-3.5 px-4 font-bold bg-slate-900 border-x border-white/[0.04] text-center ${
                       isAtm ? 'text-[#E8C070] text-sm scale-105 border-y border-[#00D084]/20 ring-1 ring-[#00D084]/15' : 'text-slate-200'
                     }`}>
-                      {row.strike} {isAtm && <span className="text-[8px] font-mono block tracking-tight text-[#00D084] uppercase font-bold">ATM</span>}
+                      {row.strike || 0} {isAtm && <span className="text-[8px] font-mono block tracking-tight text-[#00D084] uppercase font-bold">ATM</span>}
                     </td>
 
                     {/* Puts LTP */}
-                    <td className="py-3.5 pl-4 text-purple-400 font-bold">₹{row.peLtp.toFixed(2)}</td>
+                    <td className="py-3.5 pl-4 text-purple-400 font-bold">₹{peLtpValue.toFixed(2)}</td>
                     {/* Puts Price change */}
-                    <td className={`py-3.5 ${row.peChg >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
-                      {row.peChg >= 0 ? '+' : ''}{row.peChg}%
+                    <td className={`py-3.5 ${Number(row.peChg || 0) >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {Number(row.peChg || 0) >= 0 ? '+' : ''}{row.peChg || 0}%
                     </td>
                     {/* Puts OI */}
-                    <td className="py-3.5 text-slate-400">{(row.peOi).toLocaleString('en-IN')}</td>
+                    <td className="py-3.5 text-slate-400">{peOiValue.toLocaleString('en-IN')}</td>
                     {/* Puts OI Chg */}
-                    <td className={`py-3.5 ${row.peOiChg >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
-                      {row.peOiChg >= 0 ? '+' : ''}{row.peOiChg}%
+                    <td className={`py-3.5 ${Number(row.peOiChg || 0) >= 0 ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {Number(row.peOiChg || 0) >= 0 ? '+' : ''}{row.peOiChg || 0}%
                     </td>
                   </tr>
                 );

@@ -134,6 +134,12 @@ export async function callGeneratedContentWithRetry(params: {
         lastError = error;
         const msg = (error?.message || String(error)).toLowerCase();
         
+        const is503 = msg.includes("503") || 
+                            msg.includes("demand") || 
+                            msg.includes("temporary") ||
+                            msg.includes("unavailable") ||
+                            msg.includes("overloaded");
+
         const isQuotaExceeded = msg.includes("429") || 
                                 msg.includes("quota") || 
                                 msg.includes("exceeded") ||
@@ -141,13 +147,16 @@ export async function callGeneratedContentWithRetry(params: {
                                 msg.includes("exhausted") ||
                                 msg.includes("resource_exhausted");
 
-        const isTransient = msg.includes("503") || 
-                            msg.includes("demand") || 
-                            msg.includes("temporary") ||
-                            msg.includes("unavailable") ||
-                            isQuotaExceeded;
+        const isTransient = is503 || isQuotaExceeded;
 
-        console.warn(`[Gemini API] Attempt ${attempt} failed for model "${model}". Error: ${error?.message || msg}. Transient? ${isTransient}`);
+        let logErrorMsg = error?.message || msg;
+        if (isQuotaExceeded) {
+          logErrorMsg = "Quota exceeded (429 / RESOURCE_EXHAUSTED). Free tier rate limits reached.";
+        } else if (logErrorMsg && (logErrorMsg.includes('<!DOCTYPE') || logErrorMsg.includes('<html') || logErrorMsg.length > 250)) {
+          logErrorMsg = logErrorMsg.substring(0, 150) + '... (truncated Error)';
+        }
+
+        console.warn(`[Gemini API] Attempt ${attempt} failed for model "${model}". Error: ${logErrorMsg}. Transient? ${isTransient}`);
 
         if (isQuotaExceeded) {
           // Immediately suspend Gemini globally and abort to avoid spamming the rate-limited API key
@@ -155,13 +164,17 @@ export async function callGeneratedContentWithRetry(params: {
           break; // Break current model's attempt loop
         }
 
+        if (is503) {
+          console.warn(`[Gemini API] Model "${model}" is experiencing high temporary demand (503). Switching to fallback models immediately.`);
+          break; // Break the attempt loop for this model, fallback to the next model in the list
+        }
+
         if (!isTransient && attempt === maxRetries) {
           break;
         }
 
         if (attempt < maxRetries) {
-          const is503 = msg.includes("503") || msg.includes("demand") || msg.includes("unavailable");
-          const baseDelay = is503 ? 1500 : 1000;
+          const baseDelay = 1000;
           const delay = attempt * baseDelay + Math.random() * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
         }

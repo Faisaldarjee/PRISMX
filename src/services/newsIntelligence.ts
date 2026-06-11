@@ -183,7 +183,13 @@ Return a structured JSON output of type NewsMasterSummary that maps exactly to t
         console.log("[NewsIntelligence] Gemini master report generated successfully.");
       }
     } catch (err: any) {
-      const shortErr = err.message ? String(err.message).substring(0, 120) : "API Quota/Connection Limit";
+      let errStr = err.message || String(err);
+      if (errStr.includes("429") || errStr.includes("quota") || errStr.includes("exhausted")) {
+        errStr = "Quota exceeded (429 / RESOURCE_EXHAUSTED)";
+      } else if (errStr.includes('<!DOCTYPE') || errStr.includes('<html')) {
+        errStr = "HTML response from API";
+      }
+      const shortErr = errStr.substring(0, 120);
       console.log(`[NewsIntelligence] Gemini master generation fallback applied gracefully: ${shortErr}...`);
       handleGeminiError(err, "NewsMaster");
       if (cachedPayload) {
@@ -346,7 +352,13 @@ Generate a short-horizon fiveDayNarrative (5-day outlook draft), key trading cat
         console.log(`[SymbolIntelligence] Gemini complete for ticker ${symKey}.`);
       }
     } catch (err: any) {
-      const shortErr = err.message ? String(err.message).substring(0, 120) : "API Quota/Connection Limit";
+      let errStr = err.message || String(err);
+      if (errStr.includes("429") || errStr.includes("quota") || errStr.includes("exhausted")) {
+        errStr = "Quota exceeded (429 / RESOURCE_EXHAUSTED)";
+      } else if (errStr.includes('<!DOCTYPE') || errStr.includes('<html')) {
+        errStr = "HTML response from API";
+      }
+      const shortErr = errStr.substring(0, 120);
       console.log(`[SymbolIntelligence] Fallback applied gracefully for ticker ${symKey}: ${shortErr}...`);
       handleGeminiError(err, "SymbolSpy-" + symKey);
       if (cachedPayload) {

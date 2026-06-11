@@ -11,11 +11,22 @@ import path from 'path';
 import fs from 'fs';
 
 // Initialize predictions.db with self-healing to handle corrupt or old formats
-const dbDir = path.join(process.cwd(), 'data');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+let dbDir = path.join(process.cwd(), 'data');
+let dbPath = path.join(dbDir, 'predictions.db');
+
+try {
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  // Try writing a small test file to verify write access
+  const testFile = path.join(dbDir, '.write_test');
+  fs.writeFileSync(testFile, 'test');
+  fs.unlinkSync(testFile);
+} catch (writeErr: any) {
+  console.warn(`[bulkScanner] Database directory ${dbDir} is not writable:`, writeErr.message, ". Falling back to /tmp/predictions.db for write support.");
+  dbDir = '/tmp';
+  dbPath = path.join(dbDir, 'predictions.db');
 }
-const dbPath = path.join(dbDir, 'predictions.db');
 
 try {
   if (fs.existsSync(dbPath)) {

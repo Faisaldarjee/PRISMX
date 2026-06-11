@@ -227,7 +227,7 @@ export function SmartSwing() {
 
   // Format Helper
   const formatChange = (val: number) => {
-    if (val === undefined || isNaN(val)) return '0.00%';
+    if (val === null || val === undefined || isNaN(val)) return '0.00%';
     const prefix = val >= 0 ? '+' : '';
     return `${prefix}${val.toFixed(2)}%`;
   };
@@ -644,7 +644,7 @@ export function SmartSwing() {
                         <span>
                           R:R{' '}
                           <strong className="text-[#E8C070] font-black bg-[#E8C070]/5 px-1.5 py-0.5 rounded border border-[#E8C070]/10">
-                            {setup.trade_plan?.risk_reward_ratio || (Math.abs(setup.target1 - setup.lastPrice) / Math.max(1, Math.abs(setup.lastPrice - setup.stopLoss))).toFixed(1)}x
+                            {setup.trade_plan?.risk_reward_ratio || (Math.abs((setup.target1 || 0) - (setup.lastPrice || 0)) / Math.max(1, Math.abs((setup.lastPrice || 0) - (setup.stopLoss || 0)))).toFixed(1)}x
                           </strong>
                         </span>
                       </div>
@@ -789,7 +789,7 @@ export function SmartSwing() {
                           : 'OPTIMAL ACCUMULATION ENTRY RANGE'}
                       </span>
                       <span className="text-base font-bold text-[#E8C070] font-mono">
-                        {deepDiveStock.trade_plan?.entry_range || `₹${(deepDiveStock.lastPrice * 0.995).toFixed(1)} – ₹${(deepDiveStock.lastPrice * 1.005).toFixed(1)}`}
+                        {deepDiveStock.trade_plan?.entry_range || `₹${(Number(deepDiveStock.lastPrice || 0) * 0.995).toFixed(1)} – ₹${(Number(deepDiveStock.lastPrice || 0) * 1.005).toFixed(1)}`}
                       </span>
                       <p className="text-[10.5px] text-gray-500 mt-1 font-body">
                         {deepDiveStock.signal === 'SELL'
@@ -812,7 +812,7 @@ export function SmartSwing() {
                           ₹{Math.round(deepDiveStock.trade_plan?.stop_loss || deepDiveStock.stopLoss)}
                         </span>
                         <span className="text-[9px] block text-rose-500/80 font-mono mt-0.5">
-                          {deepDiveStock.signal === 'SELL' ? '+' : '-'}{((Math.abs(deepDiveStock.lastPrice - (deepDiveStock.trade_plan?.stop_loss || deepDiveStock.stopLoss)) / deepDiveStock.lastPrice) * 100).toFixed(1)}% RANGE
+                          {deepDiveStock.signal === 'SELL' ? '+' : '-'}{((Math.abs((deepDiveStock.lastPrice || 0) - (deepDiveStock.trade_plan?.stop_loss || deepDiveStock.stopLoss || 0)) / (deepDiveStock.lastPrice || 1)) * 100).toFixed(1)}% RANGE
                         </span>
                       </div>
 
@@ -825,7 +825,7 @@ export function SmartSwing() {
                           ₹{Math.round(deepDiveStock.trade_plan?.target_1 || deepDiveStock.target1)}
                         </span>
                         <span className="text-[9px] block text-emerald-500/80 font-mono mt-0.5">
-                          {deepDiveStock.signal === 'SELL' ? '-' : '+'}{((Math.abs((deepDiveStock.trade_plan?.target_1 || deepDiveStock.target1) - deepDiveStock.lastPrice) / deepDiveStock.lastPrice) * 100).toFixed(1)}% {deepDiveStock.signal === 'SELL' ? 'TARGET' : 'LIMIT'}
+                          {deepDiveStock.signal === 'SELL' ? '-' : '+'}{((Math.abs((deepDiveStock.trade_plan?.target_1 || deepDiveStock.target1 || 0) - (deepDiveStock.lastPrice || 0)) / (deepDiveStock.lastPrice || 1)) * 100).toFixed(1)}% {deepDiveStock.signal === 'SELL' ? 'TARGET' : 'LIMIT'}
                         </span>
                       </div>
 
@@ -838,7 +838,7 @@ export function SmartSwing() {
                           ₹{Math.round(deepDiveStock.trade_plan?.target_2 || deepDiveStock.target2)}
                         </span>
                         <span className="text-[9px] block text-emerald-500/60 font-mono mt-0.5">
-                          {deepDiveStock.signal === 'SELL' ? '-' : '+'}{((Math.abs((deepDiveStock.trade_plan?.target_2 || deepDiveStock.target2) - deepDiveStock.lastPrice) / deepDiveStock.lastPrice) * 100).toFixed(1)}% SPLIT
+                          {deepDiveStock.signal === 'SELL' ? '-' : '+'}{((Math.abs((deepDiveStock.trade_plan?.target_2 || deepDiveStock.target2 || 0) - (deepDiveStock.lastPrice || 0)) / (deepDiveStock.lastPrice || 1)) * 100).toFixed(1)}% SPLIT
                         </span>
                       </div>
 
@@ -857,7 +857,7 @@ export function SmartSwing() {
                       <div className="p-2.5 bg-black/30 border border-white/[0.02] rounded-lg text-right">
                         <span className="text-[9px] text-[#8892A4] block uppercase font-mono mb-1">REWARD TO RISK RATIO</span>
                         <span className="text-xs font-bold text-slate-100 font-mono block">
-                          1 : {deepDiveStock.trade_plan?.risk_reward_ratio || (Math.abs(deepDiveStock.target1 - deepDiveStock.lastPrice) / Math.max(1, Math.abs(deepDiveStock.lastPrice - deepDiveStock.stopLoss))).toFixed(1)}
+                          1 : {deepDiveStock.trade_plan?.risk_reward_ratio || (Math.abs((deepDiveStock.target1 || 0) - (deepDiveStock.lastPrice || 0)) / Math.max(1, Math.abs((deepDiveStock.lastPrice || 0) - (deepDiveStock.stopLoss || 0)))).toFixed(1)}
                         </span>
                       </div>
                     </div>
@@ -883,7 +883,7 @@ export function SmartSwing() {
                             <p>
                               {deepDiveStock.isSqueezed 
                                 ? 'Bollinger Bands Squeeze expansion sequence confirmed. Absolute band widths collapsed into highly compression triggers.'
-                                : `ATR absolute volatility index of ₹${deepDiveStock.atr.toFixed(1)} indicates constructive structural range containment.`}
+                                : `ATR absolute volatility index of ₹${Number(deepDiveStock.atr || 0).toFixed(1)} indicates constructive structural range containment.`}
                             </p>
                           </div>
 
@@ -916,7 +916,7 @@ export function SmartSwing() {
                           <div className="flex gap-2 items-start">
                             <span className="text-emerald-400 font-mono select-none mt-0.5 shrink-0">→</span>
                             <p>
-                              Daily Volume ratio represents a healthy <strong className="text-slate-200">{deepDiveStock.volumeRatio.toFixed(1)}x average volume</strong> multiplier with active momentum.
+                              Daily Volume ratio represents a healthy <strong className="text-slate-200">{Number(deepDiveStock.volumeRatio || 0).toFixed(1)}x average volume</strong> multiplier with active momentum.
                             </p>
                           </div>
                         </div>

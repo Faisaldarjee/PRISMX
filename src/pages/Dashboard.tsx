@@ -308,12 +308,22 @@ export function Dashboard() {
     suffix = ''
   ) => {
     if (!indicator) return null;
+
+    const safeFormatter = (v: any) => {
+      if (v === null || v === undefined || isNaN(v)) return '—';
+      try {
+        const num = Number(v);
+        return formatter(num);
+      } catch {
+        return '—';
+      }
+    };
     
     if (typeof indicator === 'number') {
       return (
         <div className="space-y-1.5 p-3.5 bg-[#131720] border border-[rgba(255,255,255,0.03)] rounded-xl">
           <span className="text-[9px] text-[#4A5568] font-data uppercase tracking-wider block">{label}</span>
-          <span className="text-lg font-data font-bold text-white block mt-1">{formatter(indicator)}{suffix}</span>
+          <span className="text-lg font-data font-bold text-white block mt-1">{safeFormatter(indicator)}{suffix}</span>
         </div>
       );
     }
@@ -354,12 +364,12 @@ export function Dashboard() {
         <span className="text-lg font-data font-bold text-white block mt-1">
           {status === 'UNAVAILABLE' || value === null || value === undefined
             ? '—' 
-            : `${formatter(value)}${suffix}`}
+            : `${safeFormatter(value)}${suffix}`}
         </span>
 
-        {status === 'CACHED' && timeAgo && (
+        {status === 'CACHED' && timeAgo && value !== null && value !== undefined && (
           <span className="text-[9px] text-[#8892A4]/60 font-data block mt-1">
-            Last: {formatter(value)}{suffix} ({timeAgo})
+            Last: {safeFormatter(value)}{suffix} ({timeAgo})
           </span>
         )}
       </div>
@@ -715,7 +725,7 @@ export function Dashboard() {
                     <SignalBadge signal={pred.signal} size="sm" />
                   </div>
 
-                  {price !== null && (
+                  {typeof price === 'number' && !isNaN(price) && (
                     <div className="mb-4">
                       <span className="text-[9px] text-[#4A5568] font-data block">LAST REFRESH</span>
                       <span className="text-2xl font-data text-white font-bold">₹{price.toFixed(2)}</span>
@@ -837,7 +847,7 @@ export function Dashboard() {
                     </div>
 
                     <div className="flex justify-between items-end mb-4 pt-1">
-                      {price !== null ? (
+                      {typeof price === 'number' && !isNaN(price) ? (
                         <div>
                           <span className="text-[9px] text-[#4A5568] font-data block uppercase">EXCHANGE price</span>
                           <span className="text-lg font-data font-semibold text-white">₹{price.toFixed(2)}</span>
@@ -886,11 +896,11 @@ export function Dashboard() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {renderMacroItem("DXY DOLLAR INDEX", macro.indicators.DXY, (v) => v.toFixed(2))}
-            {renderMacroItem("US 10Y BOND", macro.indicators.US10Y, (v) => v.toFixed(2), "%")}
-            {renderMacroItem("USDINR PARITY", macro.indicators.USDINR, (v) => "₹" + v.toFixed(2))}
-            {renderMacroItem("CBOE VIX", macro.indicators.VIX, (v) => v.toFixed(2))}
-            {renderMacroItem("GOLD SILVER RATIO", macro.indicators.gold_silver_ratio, (v) => v.toFixed(1))}
+            {renderMacroItem("DXY DOLLAR INDEX", macro?.indicators?.DXY, (v) => v.toFixed(2))}
+            {renderMacroItem("US 10Y BOND", macro?.indicators?.US10Y, (v) => v.toFixed(2), "%")}
+            {renderMacroItem("USDINR PARITY", macro?.indicators?.USDINR, (v) => "₹" + v.toFixed(2))}
+            {renderMacroItem("CBOE VIX", macro?.indicators?.VIX, (v) => v.toFixed(2))}
+            {renderMacroItem("GOLD SILVER RATIO", macro?.indicators?.gold_silver_ratio, (v) => v.toFixed(1))}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t border-[rgba(255,255,255,0.04)] text-xs font-data">

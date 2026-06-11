@@ -22,11 +22,23 @@ import { getNSEQuote, getMultipleQuotes } from './nseQuotes';
 import { detectPatterns } from './patternDetector';
 
 // Initialize SQLite database with self-healing to handle corrupt or old formats
-const dbDir = path.join(process.cwd(), 'data');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+// Define safe db directory with EROFS / read-only filesystem fallbacks (e.g. for Google Cloud Run production containers)
+let dbDir = path.join(process.cwd(), 'data');
+let dbPath = path.join(dbDir, 'predictions.db');
+
+try {
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  // Try writing a small test file to verify write access
+  const testFile = path.join(dbDir, '.write_test');
+  fs.writeFileSync(testFile, 'test');
+  fs.unlinkSync(testFile);
+} catch (writeErr: any) {
+  console.warn(`[database] Database directory ${dbDir} is not writable:`, writeErr.message, ". Falling back to /tmp/predictions.db for write support.");
+  dbDir = '/tmp';
+  dbPath = path.join(dbDir, 'predictions.db');
 }
-const dbPath = path.join(dbDir, 'predictions.db');
 
 try {
   if (fs.existsSync(dbPath)) {
@@ -416,7 +428,11 @@ async function fetchSafeHistory(symbol: string, startDate: Date, endDate: Date):
     if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
       chartRes = err.result;
     } else {
-      console.info(`[market-feed] ${resolved} chart redirect query detail:`, err.message);
+      let errMsg = err.message || String(err);
+      if (typeof errMsg === 'string' && (errMsg.includes('<!DOCTYPE') || errMsg.includes('<html') || errMsg.length > 200)) {
+        errMsg = errMsg.substring(0, 150) + '... (truncated HTML/Error)';
+      }
+      console.info(`[market-feed] ${resolved} chart redirect query detail:`, errMsg);
     }
   }
 
@@ -449,7 +465,11 @@ async function fetchSafeHistory(symbol: string, startDate: Date, endDate: Date):
     if (err && (err.name === 'FailedYahooValidationError' || err.message?.includes('validation')) && err.result) {
       historicalRes = err.result;
     } else {
-      console.info(`[market-feed] ${resolved} historical feed notification:`, err.message);
+      let errMsg = err.message || String(err);
+      if (typeof errMsg === 'string' && (errMsg.includes('<!DOCTYPE') || errMsg.includes('<html') || errMsg.length > 200)) {
+        errMsg = errMsg.substring(0, 150) + '... (truncated HTML/Error)';
+      }
+      console.info(`[market-feed] ${resolved} historical feed notification:`, errMsg);
     }
   }
 
