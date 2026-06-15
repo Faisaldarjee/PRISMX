@@ -253,7 +253,7 @@ export class GeminiAgent {
    */
   static async generateMorningBriefing(marketData: any): Promise<string> {
     if (!ai || isGeminiSuspended()) {
-      return `🌅 BANG ON BRIEF (FALLBACK ACTIVE)
+      return `🌅 PRISM BRIEF (FALLBACK ACTIVE)
 -----------------------------------------------
 Market Mood: Cautiously optimistic — range boundaries hold safely.
 Gold outlook: GOLDBEES safe-haven bounds stabilize cleanly. Focus on long term systematic entries on small pullbacks.
@@ -263,7 +263,7 @@ Actionable Tip: Systematic SIP budget is completely safe to deploy fully today -
     }
 
     const prompt = `
-      You are Bang On AI, an elite AI portfolio prediction and strategy assistant for Indian retail gold/silver investors.
+      You are PRISM AI, an elite AI portfolio prediction and strategy assistant for Indian retail gold/silver investors.
       Generate a daily morning briefing based on today's market data:
       
       Goldbees Price: ₹${marketData.goldbees_price} (RSI: ${marketData.gold_rsi})
@@ -275,7 +275,7 @@ Actionable Tip: Systematic SIP budget is completely safe to deploy fully today -
 
       Generate a highly readable morning briefing in comfortable simple Hinglish (Hindi-English mix). Format it exactly like this with modern clean spacing:
       
-      🌅 BANG ON BRIEF — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+      🌅 PRISM BRIEF — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
 
       Market Mood: (1 line, plain Hindi-English mix, like "Cautiously bullish — dollar softness keeps safe-havens stable")
       
@@ -297,7 +297,7 @@ Actionable Tip: Systematic SIP budget is completely safe to deploy fully today -
       });
       return response.text || "Briefing calculation error.";
     } catch (e: any) {
-      return `🌅 BANG ON BRIEF
+      return `🌅 PRISM BRIEF
 -----------------------------------------------
 Market Mood: Cautiously optimistic — range boundaries hold safely.
 Gold outlook: Price is consolidating near median bands. Bias remains neutral-bullish.
@@ -326,14 +326,14 @@ SIP Tip: Deploy standard tranches without panic-buying peaks.`;
    */
   static async explainSignal(symbol: string, signal: string, techMetrics: any): Promise<string> {
     if (!ai || isGeminiSuspended()) {
-      return `🔴 Bang On AI Explainer:
+      return `🔴 PRISM AI Explainer:
 Asset ${symbol.split('.')[0]} ke liye simple setup signal is **${signal}**. Currently, RSI is ${techMetrics.rsi} jo moderate bounds represent karta hai. Market me buying risk lower channels pe stabilized hai.  
 💡 Suggestion: Portfolio sizing control me rakhe aur systematic systematic SIP limits scale up karein.`;
     }
 
     const prompt = `
-      You are Bang On AI, the friendly AI portfolio manager.
-      Explain in simple conversational Hindi-English (Hinglish) why Bang On AI has compiled a **${signal}** recommendation for asset ${symbol}.
+      You are PRISM AI, the friendly AI portfolio manager.
+      Explain in simple conversational Hindi-English (Hinglish) why PRISM AI has compiled a **${signal}** recommendation for asset ${symbol}.
       
       Metric points:
       - Current RSI: ${techMetrics.rsi}
@@ -372,7 +372,7 @@ Asset ${symbol.split('.')[0]} ke liye simple setup signal is **${signal}**. Curr
       ? performanceData.correctSignals
       : Math.round((accuracy / 100) * totalSignals);
       
-    return `📊 BANG ON WEEKLY PORTFOLIO AUDIT
+    return `📊 PRISM WEEKLY PORTFOLIO AUDIT
 -----------------------------------------------
 Overall signal precision scored at **${accuracy}%** based on **${correctSignals}/${totalSignals}** active investment targets.
 

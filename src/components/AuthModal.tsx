@@ -302,6 +302,20 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </button>
             )}
           </div>
+
+          <div className="pt-3 mt-3 border-t border-slate-800/40 text-center text-[11px] font-mono">
+            <button 
+              type="button"
+              onClick={() => {
+                localStorage.setItem('prism_guest_mode', 'true');
+                onClose();
+                window.location.reload();
+              }}
+              className="text-amber-400 hover:underline hover:text-amber-300 font-bold"
+            >
+              ⚡ Explore with Local Guest Mode
+            </button>
+          </div>
         </form>
 
         {/* Protection Footer Note */}

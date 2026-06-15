@@ -106,7 +106,7 @@ async function runRealityChecker() {
 
   const percentage = (passCount / 5) * 100;
 
-  console.log('\n=== BANG ON REALITY CHECK ===');
+  console.log('\n=== PRISM REALITY CHECK ===');
   console.log(`TEST 1 NSE Quote:     ${test1Pass ? 'PASS ✅' : 'FAIL ❌'}`);
   console.log(`TEST 2 News Feed:     ${test2Pass ? 'PASS ✅' : 'FAIL ❌'}`);
   console.log(`TEST 3 Scanner:       ${test3Pass ? 'PASS ✅' : 'FAIL ❌'}`);

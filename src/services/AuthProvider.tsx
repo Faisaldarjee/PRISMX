@@ -150,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             symbol: 'GOLDBEES.NS',
             signal: 'BUY',
             price: 60.1,
-            description: 'Welcome to Bang On AI! Track your favorite Indian volatility SIP alerts with dynamic interest syncing.',
+            description: 'Welcome to PRISM AI! Track your favorite Indian volatility SIP alerts with dynamic interest syncing.',
             timestamp: new Date(),
             read: false
           }
@@ -355,7 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && userProfile) {
       const profileRef = doc(db, 'users', user.uid);
       try {
-        await updateDoc(profileRef, { interestedSymbols: formatted });
+        await setDoc(profileRef, { interestedSymbols: formatted }, { merge: true });
         setUserProfile({ ...userProfile, interestedSymbols: formatted });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
@@ -382,12 +382,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && userProfile) {
       const profileRef = doc(db, 'users', user.uid);
       try {
-        await updateDoc(profileRef, {
+        await setDoc(profileRef, {
           onboarded: true,
           capital: Number(capital),
           riskPercent: Number(riskPercent),
           focusMarkets
-        });
+        }, { merge: true });
         setUserProfile({
           ...userProfile,
           onboarded: true,
@@ -412,9 +412,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentCustomList.includes(symUpper)) {
         const updated = [...currentCustomList, symUpper];
         try {
-          await updateDoc(profileRef, {
+          await setDoc(profileRef, {
             customAssets: updated
-          });
+          }, { merge: true });
           setUserProfile({
             ...userProfile,
             customAssets: updated
@@ -487,9 +487,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && !isLocalOnly) {
       const docPath = `users/${user.uid}/notifications/${notificationId}`;
       try {
-        await updateDoc(doc(db, 'users', user.uid, 'notifications', notificationId), {
+        await setDoc(doc(db, 'users', user.uid, 'notifications', notificationId), {
           read: true
-        });
+        }, { merge: true });
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, docPath);
       }
@@ -548,11 +548,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         let description = '';
         if (pred.signal === 'BUY') {
-          description = `🔥 SMART ALERT: ${symbolUpper} interest trigger active! Bang On systems recommend buying ${symbolUpper} directly supporting long-term accumulation near current price ₹${currentPrice.toLocaleString('en-IN')}. Confidence: ${pred.confidence}%.`;
+          description = `🔥 SMART ALERT: ${symbolUpper} interest trigger active! PRISM systems recommend buying ${symbolUpper} directly supporting long-term accumulation near current price ₹${currentPrice.toLocaleString('en-IN')}. Confidence: ${pred.confidence}%.`;
         } else if (pred.signal === 'SELL') {
           description = `⚠️ RISK UPDATE: ${symbolUpper} is entering profit booking or overbought territories around ₹${currentPrice.toLocaleString('en-IN')}. Consider holding purchases or booking partial swing targets.`;
         } else {
-          description = `💼 STATUS PREVIEW: ${symbolUpper} is currently trending NEUTRAL. Bang On system indicates standard accumulation conditions are active.`;
+          description = `💼 STATUS PREVIEW: ${symbolUpper} is currently trending NEUTRAL. PRISM systems indicate standard accumulation conditions are active.`;
         }
 
         if (user) {

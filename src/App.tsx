@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { SmartSwing } from './pages/SmartSwing';
@@ -94,7 +94,9 @@ function AppContent() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [showInterestSettings, setShowInterestSettings] = useState(false);
 
-  const [guestMode, setGuestMode] = useState(false);
+  const [guestMode, setGuestMode] = useState(() => {
+    return localStorage.getItem('prism_guest_mode') === 'true';
+  });
 
   // One-time migration from old brand keys (bangon_*) to new (prism_*)
   useEffect(() => {
@@ -118,14 +120,11 @@ function AppContent() {
     });
   }, []);
 
-  useEffect(() => {
-    localStorage.removeItem('prism_guest_mode');
-    setGuestMode(false);
-  }, []);
-
   const [onboarded, setOnboarded] = useState(() => {
     return localStorage.getItem('prism_onboarded') === 'true';
   });
+
+  const syncedOnboardingUserIdRef = useRef<string | null>(null);
 
   const { 
     user, 
@@ -168,7 +167,8 @@ function AppContent() {
         // If they are logged in but don't have onboarding in their Firebase profile yet,
         // let's check if they have it in localStorage (onboarded as guest before log in) and sync it!
         const hasLocalOnboarded = localStorage.getItem('prism_onboarded') === 'true';
-        if (hasLocalOnboarded) {
+        if (hasLocalOnboarded && syncedOnboardingUserIdRef.current !== user.uid) {
+          syncedOnboardingUserIdRef.current = user.uid; // immediately flag to prevent simultaneous concurrent triggers
           const cap = Number(localStorage.getItem('prism_capital') || '50000');
           const risk = Number(localStorage.getItem('prism_risk') || '2');
           let markets: string[] = ['etfs', 'large-cap'];
@@ -178,7 +178,11 @@ function AppContent() {
           
           updateOnboardingSettings(cap, risk, markets).then(() => {
             setOnboarded(true);
-          }).catch(console.error);
+          }).catch((err) => {
+            console.error('Failed to sync guest onboarding info:', err);
+            // Allow retry in subsequent triggers if it failed
+            syncedOnboardingUserIdRef.current = null;
+          });
         }
       }
     }
@@ -304,7 +308,7 @@ function AppContent() {
 
   const isLandingOnlyRoute = location.pathname === '/landing' || location.pathname === '/home';
 
-  if (isLandingOnlyRoute || !user) {
+  if (isLandingOnlyRoute || (!user && !guestMode)) {
     return (
       <>
         <Landing 
@@ -312,7 +316,9 @@ function AppContent() {
             if (user) {
               navigate('/');
             } else {
-              setAuthModalOpen(true);
+              localStorage.setItem('prism_guest_mode', 'true');
+              setGuestMode(true);
+              navigate('/');
             }
           }} 
           onOpenAuth={() => setAuthModalOpen(true)} 
