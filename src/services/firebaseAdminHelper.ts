@@ -41,8 +41,9 @@ export function initializeFirebaseAdmin(): App {
   const gcpProj = cleanEnvValue(process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT);
   const firebaseProj = cleanEnvValue(process.env.VITE_FIREBASE_PROJECT_ID);
 
-  // Prioritize active firebaseConfig projectId, then fallbacks
-  const projectId = (firebaseConfig && firebaseConfig.projectId) || gcpProj || firebaseProj || 'prismlocal';
+  // Prioritize active GCP container project ID (gcpProj) to avoid authorization mismatches in Cloud Run preview,
+  // then fallback to firebaseConfig projectId (e.g. on Render) or VITE_FIREBASE_PROJECT_ID
+  const projectId = gcpProj || (firebaseConfig && firebaseConfig.projectId) || firebaseProj || 'prismlocal';
 
   console.log(`[FirebaseAdminHelper] Detected GCP Project ID: "${gcpProj}", Config VITE_FIREBASE_PROJECT_ID: "${firebaseProj}"`);
   console.log(`[FirebaseAdminHelper] Attempting to initialize with Project ID: "${projectId}"`);
