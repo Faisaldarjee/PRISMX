@@ -1,7 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import {defineConfig} from 'vite';
+
+// Ensure firebase-applet-config.json exists during build (e.g. on Render where it's gitignored)
+const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+if (!fs.existsSync(configPath)) {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify({}));
+    console.log('[Build] Created stub firebase-applet-config.json for production build');
+  } catch (err) {
+    console.error('[Build] Failed to create stub firebase-applet-config.json:', err);
+  }
+}
 
 export default defineConfig(() => {
   return {
