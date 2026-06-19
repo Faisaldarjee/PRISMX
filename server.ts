@@ -55,13 +55,33 @@ function decodeFirebaseIdTokenFallback(token: string): any {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payloadBuf = Buffer.from(parts[1], 'base64');
+    
+    // Robust base64url decoding by transforming to standard base64 if needed,
+    // and utilizing Node's built-in base64url encoding where available as a secondary fallback.
+    const base64url = parts[1];
+    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    
+    let payloadBuf: Buffer;
+    try {
+      if (typeof Buffer.from === 'function' && (Buffer as any).isEncoding && (Buffer as any).isEncoding('base64url')) {
+        payloadBuf = Buffer.from(base64url, 'base64url' as any);
+      } else {
+        payloadBuf = Buffer.from(base64, 'base64');
+      }
+    } catch {
+      payloadBuf = Buffer.from(base64, 'base64');
+    }
+    
     const payload = JSON.parse(payloadBuf.toString('utf8'));
     
-    // Check expiration (exp is in seconds)
+    // Check expiration (exp is in seconds) with a 5-minute (300 seconds) clock-drift guard
     const nowInSecs = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < nowInSecs) {
-      console.warn('[checkAuth Decoded Fallback] Token has expired');
+    const expirationThreshold = nowInSecs - 300;
+    if (payload.exp && payload.exp < expirationThreshold) {
+      console.warn('[checkAuth Decoded Fallback] Token has expired. Exp:', payload.exp, 'Threshold:', expirationThreshold);
       return null;
     }
     
