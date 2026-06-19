@@ -1223,6 +1223,15 @@ async function runEarlyAccessMigration() {
     return { success: true, updatedCount, details };
   } catch (err: any) {
     const errMsg = err?.message || String(err);
+    const isFirebaseUnconfigured = errMsg.includes('Unable to detect a Project Id') || 
+                                   errMsg.includes('projectId must be a string') || 
+                                   errMsg.includes('not initialized');
+    
+    if (isFirebaseUnconfigured) {
+      console.log('[Migration] Note: Server-side premium migration skipped because Firebase config is deleted, unconfigured, or reset in this workspace. This is fully expected and harmless! Normal local database operations will proceed flawlessly, and premium migration will execute dynamically client-side once Firebase Setup is performed.');
+      return { success: true, skipped: true, reason: 'Firebase unconfigured' };
+    }
+
     if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('insufficient permissions') || errMsg.includes('api-key') || errMsg.includes('API has not been used')) {
       console.log('[Migration] Note: Server-side premium migration skipped (Admin SDK has restricted Firestore access in this sandboxed environment). This is fully expected and harmless! User premium status of early access accounts is automatically, gracefully, and seamlessly updated client-side inside AuthProvider.tsx upon user login.');
       return { success: true, skipped: true, reason: 'Managed client-side inside AuthProvider.tsx' };

@@ -5,6 +5,8 @@ import { initializeFirestore } from 'firebase/firestore';
 
 import appletConfig from '../../firebase-applet-config.json';
 
+const configSafe = (appletConfig || {}) as any;
+
 const cleanEnvVar = (value: any): string => {
   if (typeof value !== 'string') return '';
   let trimmed = value.trim();
@@ -24,7 +26,7 @@ const cleanEnvVar = (value: any): string => {
 };
 
 const getResolvedProjectId = (): string => {
-  const configId = appletConfig.projectId;
+  const configId = configSafe.projectId;
   const envId = cleanEnvVar(import.meta.env.VITE_FIREBASE_PROJECT_ID);
   
   if (configId && configId !== 'bangonlocal' && configId !== 'prismlocal') {
@@ -37,17 +39,17 @@ const getResolvedProjectId = (): string => {
 };
 
 const resolvedProjectId = getResolvedProjectId();
-const isConfigReal = appletConfig.projectId && appletConfig.projectId !== 'bangonlocal' && appletConfig.projectId !== 'prismlocal';
+const isConfigReal = configSafe.projectId && configSafe.projectId !== 'bangonlocal' && configSafe.projectId !== 'prismlocal';
 
-const defaultAuthDomain = (isConfigReal ? appletConfig.authDomain : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || appletConfig.authDomain || `${resolvedProjectId}.firebaseapp.com`;
+const defaultAuthDomain = (isConfigReal ? configSafe.authDomain : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || configSafe.authDomain || `${resolvedProjectId}.firebaseapp.com`;
 
 const firebaseConfig = {
-  apiKey: (isConfigReal ? appletConfig.apiKey : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_API_KEY) || appletConfig.apiKey,
+  apiKey: (isConfigReal ? configSafe.apiKey : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_API_KEY) || configSafe.apiKey,
   authDomain: defaultAuthDomain,
   projectId: resolvedProjectId,
-  storageBucket: (isConfigReal ? appletConfig.storageBucket : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || appletConfig.storageBucket,
-  messagingSenderId: (isConfigReal ? appletConfig.messagingSenderId : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || appletConfig.messagingSenderId,
-  appId: (isConfigReal ? appletConfig.appId : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_APP_ID) || appletConfig.appId,
+  storageBucket: (isConfigReal ? configSafe.storageBucket : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || configSafe.storageBucket,
+  messagingSenderId: (isConfigReal ? configSafe.messagingSenderId : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || configSafe.messagingSenderId,
+  appId: (isConfigReal ? configSafe.appId : null) || cleanEnvVar(import.meta.env.VITE_FIREBASE_APP_ID) || configSafe.appId,
 };
 
 console.log('[Firebase Init] config keys loaded:', Object.keys(firebaseConfig).reduce((acc, key) => {
@@ -55,7 +57,7 @@ console.log('[Firebase Init] config keys loaded:', Object.keys(firebaseConfig).r
   return acc;
 }, {} as Record<string, string>));
 
-const databaseId = cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_ID) || appletConfig.firestoreDatabaseId;
+const databaseId = cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_ID) || configSafe.firestoreDatabaseId;
 
 const app = initializeApp(firebaseConfig);
 

@@ -214,10 +214,9 @@ export interface CacheableUserProfile {
 }
 
 export async function getUsersFromCacheOrFirestore(): Promise<CacheableUserProfile[]> {
-  initializeFirebaseAdmin();
-  const firestore = getFirestoreAdmin();
-  
   try {
+    initializeFirebaseAdmin();
+    const firestore = getFirestoreAdmin();
     const snap = await firestore.collection('users').get();
     const list: CacheableUserProfile[] = [];
     snap.forEach(doc => {
@@ -286,7 +285,12 @@ export async function checkAndSendNotifications() {
   console.log('[NotificationEngine] Starting active signal sweep across assets...');
   
   const users = await getUsersFromCacheOrFirestore();
-  const firestore = getFirestoreAdmin();
+  let firestore: any = null;
+  try {
+    firestore = getFirestoreAdmin();
+  } catch (e: any) {
+    console.log('[NotificationEngine] Firebase Firestore is unconfigured or unavailable. Sweeps will operate using local SQLite fallback database configuration.');
+  }
   console.log(`[NotificationEngine] Sweeping ${users.length} user settings...`);
   
   for (const user of users) {
