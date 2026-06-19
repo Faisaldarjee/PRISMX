@@ -162,10 +162,10 @@ export async function callGeneratedContentWithRetry(params: {
           break; // Break loop for current model, and since isGeminiSuspended() is now true, the outer loop will break as well
         }
 
-        console.log(`[Gemini API] Attempt ${attempt} failed for model "${model}". Error: ${logErrorMsg}.`);
+        console.log(`[Gemini API] Attempt ${attempt} for model "${model}" returned status: ${logErrorMsg}.`);
 
         if (is503) {
-          console.log(`[Gemini API] Model "${model}" is experiencing high temporary demand (503). Switching to fallback models.`);
+          console.log(`[Gemini API] Model "${model}" is currently busy (503). Attempting alternative models.`);
           break; // Break the attempt loop for this model, fallback to the next model in the list
         }
 

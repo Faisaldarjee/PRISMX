@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 import appletConfig from '../../firebase-applet-config.json';
 
@@ -59,10 +59,10 @@ const databaseId = cleanEnvVar(import.meta.env.VITE_FIREBASE_DATABASE_ID) || app
 
 const app = initializeApp(firebaseConfig);
 
-// Safe initialization for the default database vs custom multi-database IDs
+// Safe initialization for the default database vs custom multi-database IDs with long-polling to prevent WebSocket failures in sandbox environment
 export const db = (databaseId && databaseId !== 'default' && databaseId !== '(default)') 
-  ? getFirestore(app, databaseId) 
-  : getFirestore(app);
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, databaseId) 
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
 export const auth = getAuth();
 
 export enum OperationType {
