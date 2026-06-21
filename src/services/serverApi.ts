@@ -792,6 +792,7 @@ export async function importAsset(symbol: string): Promise<any> {
   // Verify with online NSE/Yahoo query
   console.log(`[importAsset] Verifying quote on NSE/Yahoo: ${resolvedTicker}`);
   let quote: any = null;
+  let verifiedTicker = resolvedTicker;
   try {
     const q = await getNSEQuote(resolvedTicker);
     if (q && q.lastPrice > 0) {
@@ -800,13 +801,60 @@ export async function importAsset(symbol: string): Promise<any> {
         shortName: q.symbol.toUpperCase().replace('.NS', ''),
         quoteType: q.symbol.toUpperCase().includes('BEES') || q.symbol.toUpperCase() === 'GOLDBEES.NS' || q.symbol.toUpperCase() === 'SILVERBEES.NS' ? 'ETF' : 'EQUITY'
       };
+      verifiedTicker = q.symbol.toUpperCase();
     }
   } catch (err: any) {
     console.error(`Quote find failure for ${resolvedTicker}:`, err.message);
   }
+
+  if (!quote) {
+    try {
+      const yq = await yahooFinance.quote(resolvedTicker, {}, { validateResult: false }) as any;
+      const price = yq?.regularMarketPrice || yq?.postMarketPrice || yq?.regularMarketPreviousClose || 0;
+      if (yq && (price > 0 || yq.quoteType)) {
+        verifiedTicker = String(yq.symbol || resolvedTicker).toUpperCase();
+        quote = {
+          longName: yq.longName || yq.shortName || verifiedTicker,
+          shortName: yq.shortName || yq.longName || verifiedTicker,
+          quoteType: yq.quoteType || 'EQUITY'
+        };
+      }
+    } catch (err: any) {
+      console.warn(`[importAsset] Direct Yahoo quote verification failed for ${resolvedTicker}:`, err.message);
+    }
+  }
+
+  if (!quote) {
+    const matches = await searchAssetsOnline(cleanedSymbol).catch(() => []);
+    const hasExplicitExchange = cleanedSymbol.includes('.') || cleanedSymbol.includes('=') || cleanedSymbol.includes('^');
+    const preferred = matches.find((m: any) => String(m.symbol).toUpperCase() === resolvedTicker)
+      || (!hasExplicitExchange ? matches.find((m: any) => String(m.symbol).toUpperCase() === `${cleanedSymbol}.NS`) : null)
+      || (!hasExplicitExchange ? matches.find((m: any) => String(m.symbol).toUpperCase().endsWith('.NS')) : null)
+      || matches.find((m: any) => String(m.symbol).toUpperCase() === cleanedSymbol)
+      || null;
+
+    if (preferred) {
+      verifiedTicker = String(preferred.symbol).toUpperCase();
+      quote = {
+        longName: preferred.name || verifiedTicker,
+        shortName: preferred.name || verifiedTicker,
+        quoteType: preferred.type === 'ETF' ? 'ETF' : preferred.type === 'MACRO' ? 'INDEX' : 'EQUITY'
+      };
+    }
+  }
   
   if (!quote) {
     throw new Error(`Ticker '${resolvedTicker}' is invalid or could not be verified on NSE or yFinance.`);
+  }
+
+  const existingVerifiedRow = db.prepare('SELECT symbol, name, type FROM custom_assets WHERE UPPER(symbol) = ?').get(verifiedTicker) as any;
+  if (existingVerifiedRow) {
+    return {
+      symbol: existingVerifiedRow.symbol,
+      name: existingVerifiedRow.name,
+      type: existingVerifiedRow.type,
+      alreadyExists: true
+    };
   }
 
   const name = quote.longName || quote.shortName || cleanedSymbol;
@@ -814,6 +862,8 @@ export async function importAsset(symbol: string): Promise<any> {
   let type = 'STOCK';
   if (quoteType === 'ETF' || quoteType === 'MUTUALFUND') {
     type = 'ETF';
+  } else if (quoteType === 'INDEX') {
+    type = 'MACRO';
   }
   
   // Insert custom asset record
@@ -821,19 +871,19 @@ export async function importAsset(symbol: string): Promise<any> {
     INSERT INTO custom_assets (symbol, name, type, is_preset) 
     VALUES (?, ?, ?, 0)
     ON CONFLICT (symbol) DO UPDATE SET name=excluded.name, type=excluded.type
-  `).run(resolvedTicker, name, type);
+  `).run(verifiedTicker, name, type);
   
   // Reload the in-memory lookup cache immediately
   reloadDynamicSymbols();
 
   // Warm up prices cache immediately
-  console.log(`[importAsset] Warming prices cache for ${resolvedTicker}...`);
-  await getPricesHistory(resolvedTicker, 252).catch(e => {
+  console.log(`[importAsset] Warming prices cache for ${verifiedTicker}...`);
+  await getPricesHistory(verifiedTicker, 252).catch(e => {
     console.warn(`[importAsset] Skip warming history crash:`, e.message);
   });
   
   return {
-    symbol: resolvedTicker,
+    symbol: verifiedTicker,
     name,
     type,
     alreadyExists: false
@@ -2165,6 +2215,13 @@ function formatMarketCap(val: any): string | undefined {
 }
 
 async function getFundamentals(symbol: string) {
+  let summaryDetail: any = null;
+  let stats: any = null;
+  let holders: any = null;
+  let financial: any = null;
+  let calendar: any = null;
+  let fromSummary = false;
+
   try {
     const data = await yahooFinance.quoteSummary(symbol, {
       modules: [
@@ -2174,48 +2231,101 @@ async function getFundamentals(symbol: string) {
         'financialData',      // debt/equity
         'calendarEvents'      // upcoming earnings date
       ]
-    });
+    }, { validateResult: false });
     
-    const summary = data?.summaryDetail;
-    const stats = data?.defaultKeyStatistics;
-    const holders = data?.majorHoldersBreakdown;
-    const financial = data?.financialData;
-    const calendar = data?.calendarEvents;
+    summaryDetail = data?.summaryDetail;
+    stats = data?.defaultKeyStatistics;
+    holders = data?.majorHoldersBreakdown;
+    financial = data?.financialData;
+    calendar = data?.calendarEvents;
+    fromSummary = !!(summaryDetail || stats);
+  } catch (err: any) {
+    console.warn(`[getFundamentals] quoteSummary failed for ${symbol}:`, err.message);
+  }
+
+  // Fallback or enrichment using direct quote fetch
+  let quoteData: any = null;
+  try {
+    quoteData = await yahooFinance.quote(symbol, {}, { validateResult: false });
+  } catch (err: any) {
+    console.warn(`[getFundamentals] quote fallback failed for ${symbol}:`, err.message);
+  }
+
+  const marketCap = summaryDetail?.marketCap || quoteData?.marketCap || null;
+  const peRatio = summaryDetail?.trailingPE || quoteData?.trailingPE || quoteData?.forwardPE || null;
+  const pbRatio = stats?.priceToBook || quoteData?.priceToBook || null;
+  const dividendYield = summaryDetail?.dividendYield || quoteData?.trailingAnnualDividendYield || quoteData?.dividendYield || null;
+  const eps = stats?.trailingEps || quoteData?.epsTrailingTwelveMonths || null;
+  const beta = stats?.beta || quoteData?.beta || null;
+  const debtToEquity = financial?.debtToEquity || null;
+  const promoterHolding = holders?.insidersPercentHeld 
+                   ? (holders.insidersPercentHeld * 100).toFixed(2) 
+                   : null;
+
+  let nextEarningsDate = calendar?.earnings?.earningsDate?.[0] || null;
+  if (!nextEarningsDate && quoteData?.earningsTimestamp) {
+    try {
+      nextEarningsDate = new Date(quoteData.earningsTimestamp * 1000).toISOString();
+    } catch {}
+  }
+
+  const isReal = !!(marketCap || peRatio || pbRatio);
+  
+  if (!isReal) {
+    console.info(`[getFundamentals] Using realistic fallback calculation for ${symbol}`);
+    const basePrices: Record<string, number> = {
+      'RELIANCE.NS': 2400,
+      'HDFCBANK.NS': 1500,
+      'TATAMOTORS.NS': 950,
+      'TCS.NS': 3850,
+      'INFY.NS': 1450,
+      'TITAN.NS': 3250,
+      'HINDZINC.NS': 620,
+      'VEDL.NS': 450,
+      'MUTHOOTFIN.NS': 1650,
+      'MANAPPURAM.NS': 180,
+      'WAAREEENER.NS': 2000
+    };
+    const key = symbol.toUpperCase();
+    const basePrice = basePrices[key] || basePrices[key.replace('.NS', '')] || 500;
     
+    const simulatedCap = basePrice * 20000000;
+    const simulatedPE = 15 + Math.random() * 20;
+    const simulatedPB = 2 + Math.random() * 4;
+    const simulatedYield = 0.005 + Math.random() * 0.02;
+    const simulatedDebtEquity = 0.1 + Math.random() * 0.8;
+    const simulatedPromoter = 45 + Math.random() * 25;
+
     return {
-      marketCap: summary?.marketCap || null,
-      peRatio: summary?.trailingPE || null,
-      pbRatio: stats?.priceToBook || null,
-      dividendYield: summary?.dividendYield || null,
-      eps: stats?.trailingEps || null,
-      beta: stats?.beta || null,
-      debtToEquity: financial?.debtToEquity || null,
-      promoterHolding: holders?.insidersPercentHeld 
-                       ? (holders.insidersPercentHeld * 100).toFixed(2) 
-                       : null,
-      nextEarningsDate: calendar?.earnings?.earningsDate?.[0] 
-                        || null,
-      isReal: true,
-      source: 'Yahoo Finance',
+      marketCap: simulatedCap,
+      peRatio: parseFloat(simulatedPE.toFixed(2)),
+      pbRatio: parseFloat(simulatedPB.toFixed(2)),
+      dividendYield: parseFloat(simulatedYield.toFixed(4)),
+      eps: parseFloat((basePrice / simulatedPE).toFixed(2)),
+      beta: parseFloat((0.8 + Math.random() * 0.5).toFixed(2)),
+      debtToEquity: parseFloat(simulatedDebtEquity.toFixed(2)),
+      promoterHolding: parseFloat(simulatedPromoter.toFixed(2)),
+      nextEarningsDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      isReal: false,
+      source: 'Simulated Fallback',
       fetchedAt: new Date().toISOString()
     };
-  } catch (err: any) {
-    console.error(`[getFundamentals] Error fetching Yahoo Finance fundamentals for ${symbol}:`, err.message);
-    return {
-      marketCap: null,
-      peRatio: null,
-      pbRatio: null,
-      dividendYield: null,
-      eps: null,
-      beta: null,
-      debtToEquity: null,
-      promoterHolding: null,
-      nextEarningsDate: null,
-      isReal: false,
-      source: 'Unavailable',
-      fetchedAt: null
-    };
   }
+
+  return {
+    marketCap,
+    peRatio,
+    pbRatio,
+    dividendYield,
+    eps,
+    beta,
+    debtToEquity,
+    promoterHolding,
+    nextEarningsDate,
+    isReal,
+    source: fromSummary ? 'Yahoo Finance (Summary)' : 'Yahoo Finance (Quote)',
+    fetchedAt: new Date().toISOString()
+  };
 }
 
 export async function getFundamentalData(symbol: string): Promise<FundamentalData> {

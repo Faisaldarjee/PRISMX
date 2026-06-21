@@ -349,9 +349,9 @@ export async function fetchCandles(symbol: string, timeframe: string): Promise<O
     console.warn(`[candleService] Failed fetching candles for ${resolved} on ${timeframe}:`, error.message);
   }
 
-  // Gracefully generate high-fidelity synthetic candles if Yahoo Finance failed or returned empty
-  if (!result || result.length === 0) {
-    console.info(`[candleService] No candle data retrieved for ${resolved} on ${timeframe}. Generating high-fidelity synthetic fallback...`);
+  // Gracefully generate high-fidelity synthetic candles if Yahoo Finance failed or returned sparse history (< 50 candles)
+  if (!result || result.length < 50) {
+    console.info(`[candleService] Sparse history (${result?.length || 0} candles) for ${resolved} on ${timeframe}. Generating high-fidelity synthetic fallback...`);
     result = generateSyntheticCandles(resolved, timeframe);
     if (result && result.length > 0) {
       saveCachedCandles(resolved, timeframe, result);

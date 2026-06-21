@@ -54,17 +54,29 @@ dotenv.config();
 
 async function checkAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
+  console.log('Auth header received:', authHeader?.substring(0, 30));
+  
   if (!authHeader?.startsWith('Bearer ')) {
+    console.warn('[checkAuth] Missing or malformed Authorization header');
     return res.status(401).json({ error: 'Authentication required.' });
   }
   
   const token = authHeader.split('Bearer ')[1];
+  console.log('Token extracted (first 20 chars):', token?.substring(0, 20));
+  
   try {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    
+    if (error) {
+      console.error('Supabase getUser error:', error.message, error.status);
+    }
+    
     if (error || !user) {
+      console.warn('[checkAuth] Token validation failed: invalid user or error');
       return res.status(403).json({ error: 'Invalid or expired token.' });
     }
     
+    console.log('Auth successful for user:', user.email);
     req.user = {
       ...user,
       uid: user.id
@@ -364,6 +376,7 @@ async function startServer() {
   });
 
   app.post('/api/assets/import', async (req, res) => {
+    console.log('Import request for:', req.body.symbol);
     try {
       const { symbol } = req.body;
       if (!symbol) {
@@ -371,9 +384,9 @@ async function startServer() {
       }
       const outcome = await importAsset(symbol);
       res.json(outcome);
-    } catch (error: any) {
-      console.error('Error importing custom asset:', error);
-      res.status(500).json({ detail: error.message });
+    } catch (e: any) {
+      console.error('Import error details:', e);
+      res.status(500).json({ error: 'Import failed', detail: String(e.message || e) });
     }
   });
 
@@ -805,6 +818,7 @@ async function startServer() {
     try {
       const symbol = req.params.symbol.toUpperCase();
       const candles = await fetchCandles(symbol, '1D');
+      console.log('SMC check - candles fetched for', symbol, ':', candles.length);
       
       if (!candles || candles.length < 50) {
         return res.json({ 
@@ -1100,10 +1114,11 @@ async function startServer() {
   app.get('/api/fundamentals/:symbol', async (req, res) => {
     try {
       const data = await getFundamentalData(req.params.symbol);
+      console.log('Fundamentals raw data for', req.params.symbol, ':', data);
       res.json(data);
-    } catch (error: any) {
-      console.error(`Error in /api/fundamentals/${req.params.symbol}:`, error);
-      res.status(500).json({ detail: error.message });
+    } catch (e) {
+      console.error('Fundamentals fetch error:', e);
+      res.status(500).json({ error: 'Failed to fetch fundamentals' });
     }
   });
 

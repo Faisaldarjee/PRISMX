@@ -165,9 +165,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(sessionUser);
 
       // Clean up previous real-time subscriptions
-      if (watchlistsChannel) { watchlistsChannel.unsubscribe(); watchlistsChannel = null; }
-      if (portfoliosChannel) { portfoliosChannel.unsubscribe(); portfoliosChannel = null; }
-      if (notificationsChannel) { notificationsChannel.unsubscribe(); notificationsChannel = null; }
+      if (watchlistsChannel) { supabase.removeChannel(watchlistsChannel); watchlistsChannel = null; }
+      if (portfoliosChannel) { supabase.removeChannel(portfoliosChannel); portfoliosChannel = null; }
+      if (notificationsChannel) { supabase.removeChannel(notificationsChannel); notificationsChannel = null; }
 
       if (sessionUser) {
         const uId = sessionUser.id;
@@ -334,9 +334,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       subscription.unsubscribe();
-      if (watchlistsChannel) watchlistsChannel.unsubscribe();
-      if (portfoliosChannel) portfoliosChannel.unsubscribe();
-      if (notificationsChannel) notificationsChannel.unsubscribe();
+      if (watchlistsChannel) supabase.removeChannel(watchlistsChannel);
+      if (portfoliosChannel) supabase.removeChannel(portfoliosChannel);
+      if (notificationsChannel) supabase.removeChannel(notificationsChannel);
     };
   }, []);
 

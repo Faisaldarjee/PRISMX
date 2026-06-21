@@ -18,6 +18,8 @@ export async function parseApiJson(response: Response): Promise<any> {
 
 export async function authFetch(url: string, signal?: AbortSignal) {
   const { data: { session } } = await supabase.auth.getSession();
+  console.log('[authFetch] Session exists:', !!session);
+  console.log('[authFetch] Token (first 20 chars):', session?.access_token?.substring(0, 20));
   
   if (!session) {
     console.warn('authFetch: No active session for', url);
@@ -63,6 +65,8 @@ export async function fetchWithRetry(
       };
       if (isProtected) {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('[fetchWithRetry] Protected route query. Session exists:', !!session);
+        console.log('[fetchWithRetry] Token (first 20 chars):', session?.access_token?.substring(0, 20));
         if (session) {
           headers['Authorization'] = `Bearer ${session.access_token}`;
         }
