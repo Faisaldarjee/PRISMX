@@ -113,7 +113,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       } else if (err.code === 'auth/invalid-email') {
         errMsg = 'Invalid email address format.';
       } else if (err.code === 'auth/operation-not-allowed') {
-        errMsg = 'Email/Password sign-in is disabled in your Firebase console. Please go to Firebase Console -> Authentication -> Sign-in method, click "Add new provider", select "Email/Password", and click Enable.';
+        errMsg = 'Email/Password sign-in is disabled in your Supabase project. Please go to Supabase Dashboard -> Authentication -> Providers, click "Email", and click Enable.';
       }
       setError(errMsg);
     } finally {
@@ -148,7 +148,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       } else if (err.code === 'auth/popup-blocked') {
         errMsg = 'The sign-in popup was blocked by your browser. Please allow popups for this site, or try to enable it in settings.';
       } else if (err.code === 'auth/operation-not-allowed') {
-        errMsg = 'Google sign-in is disabled in your Firebase console. Please go to Firebase Console -> Authentication -> Sign-in method, click "Add new provider", select "Google", and click Enable.';
+        errMsg = 'Google sign-in is disabled in your Supabase project. Please go to Supabase Dashboard -> Authentication -> Providers, click "Google", and click Enable.';
       }
       setError(errMsg);
       setLoading(false);
@@ -375,7 +375,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         {/* Protection Footer Note */}
         <div className="bg-slate-950 p-4 text-center border-t border-slate-850/80 text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1.5">
           <ShieldCheck size={12} className="text-emerald-400" />
-          Protected by Firebase Authentication
+          Protected by Supabase Authentication
         </div>
       </div>
     </div>

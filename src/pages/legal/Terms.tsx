@@ -68,7 +68,7 @@ export default function Terms() {
         </div>
 
         <div className="text-center text-[10px] font-mono text-[#4A5568]">
-          Last revised: June 2026 · Protected by Firebase Identity Protocol
+          Last revised: June 2026 · Protected by Supabase Identity Protocol
         </div>
       </div>
     </div>

@@ -50,58 +50,7 @@ import { canCallGemini, trackGeminiCall, getGeminiUsageCount, isGeminiSuspended 
 // Load env vars
 dotenv.config();
 
-function decodeFirebaseIdTokenFallback(token: string): any {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    // Robust base64url decoding by transforming to standard base64 if needed,
-    // and utilizing Node's built-in base64url encoding where available as a secondary fallback.
-    const base64url = parts[1];
-    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) {
-      base64 += '=';
-    }
-    
-    let payloadBuf: Buffer;
-    try {
-      if (typeof Buffer.from === 'function' && (Buffer as any).isEncoding && (Buffer as any).isEncoding('base64url')) {
-        payloadBuf = Buffer.from(base64url, 'base64url' as any);
-      } else {
-        payloadBuf = Buffer.from(base64, 'base64');
-      }
-    } catch {
-      payloadBuf = Buffer.from(base64, 'base64');
-    }
-    
-    const payload = JSON.parse(payloadBuf.toString('utf8'));
-    
-    // Check expiration (exp is in seconds) with a 5-minute (300 seconds) clock-drift guard
-    const nowInSecs = Math.floor(Date.now() / 1000);
-    const expirationThreshold = nowInSecs - 300;
-    if (payload.exp && payload.exp < expirationThreshold) {
-      console.warn('[checkAuth Decoded Fallback] Token has expired. Exp:', payload.exp, 'Threshold:', expirationThreshold);
-      return null;
-    }
-    
-    // Check issuer
-    if (payload.iss && !payload.iss.startsWith('https://securetoken.google.com/')) {
-      console.warn('[checkAuth Decoded Fallback] Invalid issuer:', payload.iss);
-      return null;
-    }
-    
-    return {
-      uid: payload.sub || payload.user_id,
-      email: payload.email,
-      email_verified: payload.email_verified,
-      name: payload.name,
-      ...payload
-    };
-  } catch (e: any) {
-    console.error('[checkAuth Decoded Fallback] Error decoding JWT:', e);
-    return null;
-  }
-}
+
 
 async function checkAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
@@ -223,7 +172,7 @@ async function startServer() {
   // Rate Limiting (FIX 2) - Scaled up for stable sandbox performance and to prevent false positives from shared gateway IPs
   const apiLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutes
-    max: 50000,              // High threshold of 50,000 requests to eliminate accidental blocks
+    max: 1500,               // Standard secure threshold for APIs
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' }
@@ -231,7 +180,7 @@ async function startServer() {
 
   const strictLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 200,                // Raised from 10 to 200 to accommodate multi-tab or fast UI queries to Gemini
+    max: 45,                 // Realistic production limit for AI requests
     message: { error: 'Rate limit exceeded for AI endpoints.' }
   });
 
@@ -286,11 +235,16 @@ async function startServer() {
 
   // Temporary admin database export endpoint for local backups/downloads
   app.get('/api/admin/export-db', (req, res) => {
-    const adminKey = req.header('X-Admin-Key') || req.query.key;
-    const expectedKey = process.env.ADMIN_EXPORT_KEY || 'PrismBackup2026';
+    const adminKey = req.header('X-Admin-Key');
+    const expectedKey = cleanEnvVal(process.env.ADMIN_EXPORT_KEY);
+    
+    if (!expectedKey) {
+      console.error('[Admin] ADMIN_EXPORT_KEY environment variable is not defined.');
+      return res.status(500).json({ detail: 'Server security configuration error.' });
+    }
     
     if (!adminKey || adminKey !== expectedKey) {
-      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key or ?key= parameter is required.' });
+      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
     }
     
     let dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');
@@ -311,11 +265,16 @@ async function startServer() {
 
   // Trigger notification sweeps immediately for validation/debugging
   app.get('/api/admin/notifications/check', async (req, res) => {
-    const adminKey = req.header('X-Admin-Key') || req.query.key;
-    const expectedKey = process.env.ADMIN_EXPORT_KEY || 'PrismBackup2026';
+    const adminKey = req.header('X-Admin-Key');
+    const expectedKey = cleanEnvVal(process.env.ADMIN_EXPORT_KEY);
+    
+    if (!expectedKey) {
+      console.error('[Admin] ADMIN_EXPORT_KEY environment variable is not defined.');
+      return res.status(500).json({ detail: 'Server security configuration error.' });
+    }
     
     if (!adminKey || adminKey !== expectedKey) {
-      return res.status(401).json({ detail: 'Unauthorized. Valid key is required.' });
+      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
     }
     
     console.log('[Admin API] Manual notification sweep triggered...');
@@ -353,7 +312,7 @@ async function startServer() {
   app.get('/api/gemini/quota', (req, res) => {
     res.json({
       count: getGeminiUsageCount(),
-      limit: 40,
+      limit: 250,
       canCall: canCallGemini(),
       suspended: isGeminiSuspended()
     });

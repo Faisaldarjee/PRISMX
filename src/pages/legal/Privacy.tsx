@@ -51,7 +51,7 @@ export default function Privacy() {
             <div className="space-y-2">
               <h3 className="font-display font-semibold text-[15px] text-white uppercase tracking-wider">02. Data Usage and Security</h3>
               <p>
-                We do NOT sell, rent, license, or disclose your email address or account telemetry to any third-party marketing brokers. All your preferences are completely stored client-side in your local workspace cache. When syncing is initialized, details are secured within Google Firebase Firestore datastores under robust role-based security rules.
+                We do NOT sell, rent, license, or disclose your email address or account telemetry to any third-party marketing brokers. All your preferences are completely stored client-side in your local workspace cache. When syncing is initialized, details are secured within Supabase Postgres database instances under robust role-based row-level security policies.
               </p>
             </div>
 
@@ -73,7 +73,7 @@ export default function Privacy() {
         </div>
 
         <div className="text-center text-[10px] font-mono text-[#4A5568]">
-          Last revised: June 2026 · Protected by Firebase Identity Protocol
+          Last revised: June 2026 · Protected by Supabase Identity Protocol
         </div>
       </div>
     </div>

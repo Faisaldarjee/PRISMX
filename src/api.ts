@@ -9,13 +9,34 @@ import {
   CorrelationData,
   FundamentalData
 } from './types';
+import { supabase } from './services/supabase';
 
 // Smart API routing base resolution
 const API_BASE = window.location.port === '5173' ? 'http://localhost:3000' : '';
 
 async function fetchJson<T>(url: string, options?: RequestInit, retries = 4, delayMs = 1500): Promise<T> {
+  const finalOptions = { ...options };
   try {
-    const response = await fetch(url, options);
+    const isProtected = url.includes('/api/predict/') || 
+                        url.includes('/api/predict-all') ||
+                        url.includes('/api/gemini/') ||
+                        url.includes('/api/retrain/');
+                        
+    if (isProtected) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          finalOptions.headers = {
+            ...finalOptions.headers,
+            'Authorization': `Bearer ${session.access_token}`
+          };
+        }
+      } catch (authErr) {
+        console.warn('[API Client] Could not resolve Supabase session for token injection:', authErr);
+      }
+    }
+
+    const response = await fetch(url, finalOptions);
     if (!response.ok) {
       const text = await response.text();
       let message = `API request failed: ${response.statusText}`;

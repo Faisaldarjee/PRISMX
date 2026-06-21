@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   fetchWithRetry, 
+  parseApiJson,
   SectionSkeleton, 
   SectionError 
 } from '../utils/apiHelpers';
@@ -169,19 +170,13 @@ export function AssetsList() {
         body: JSON.stringify({ symbol })
       });
       
-      const text = await res.text();
-      let outcome: any = {};
-      try {
-        outcome = text ? JSON.parse(text) : {};
-      } catch (e) {
-        throw new Error(text.substring(0, 100) || `HTTP error ${res.status}`);
-      }
+      const outcome = await parseApiJson(res);
 
       if (!res.ok) {
-        throw new Error(outcome.detail || outcome.error || `HTTP error ${res.status}`);
+        throw new Error(outcome?.detail || outcome?.error || `HTTP error ${res.status}`);
       }
-      if (outcome.error) throw new Error(outcome.error);
-      if (!outcome.symbol) throw new Error("No symbol returned from import.");
+      if (outcome?.error) throw new Error(outcome.error);
+      if (!outcome?.symbol) throw new Error("No symbol returned from import.");
 
       await addCustomAsset(outcome.symbol);
       setImportMessage({
@@ -216,19 +211,13 @@ export function AssetsList() {
         body: JSON.stringify({ symbol: query })
       });
       
-      const text = await res.text();
-      let outcome: any = {};
-      try {
-        outcome = text ? JSON.parse(text) : {};
-      } catch (e) {
-        throw new Error(text.substring(0, 100) || `HTTP error ${res.status}`);
-      }
+      const outcome = await parseApiJson(res);
 
       if (!res.ok) {
-        throw new Error(outcome.detail || outcome.error || `HTTP error ${res.status}`);
+        throw new Error(outcome?.detail || outcome?.error || `HTTP error ${res.status}`);
       }
-      if (outcome.error) throw new Error(outcome.error);
-      if (!outcome.symbol) throw new Error("No symbol returned from import.");
+      if (outcome?.error) throw new Error(outcome.error);
+      if (!outcome?.symbol) throw new Error("No symbol returned from import.");
 
       await addCustomAsset(outcome.symbol);
       if (outcome.alreadyExists) {
@@ -321,19 +310,13 @@ export function AssetsList() {
           body: JSON.stringify({ symbol: sym })
         });
         
-        const text = await res.text();
-        let outcome: any = {};
-        try {
-          outcome = text ? JSON.parse(text) : {};
-        } catch (e) {
-          throw new Error(text.substring(0, 100) || `HTTP error ${res.status}`);
-        }
+        const outcome = await parseApiJson(res);
 
         if (!res.ok) {
-          throw new Error(outcome.detail || outcome.error || `HTTP error ${res.status}`);
+          throw new Error(outcome?.detail || outcome?.error || `HTTP error ${res.status}`);
         }
-        if (outcome.error) throw new Error(outcome.error);
-        if (!outcome.symbol) throw new Error("No symbol returned from import.");
+        if (outcome?.error) throw new Error(outcome.error);
+        if (!outcome?.symbol) throw new Error("No symbol returned from import.");
 
         await addCustomAsset(outcome.symbol);
         successCount++;

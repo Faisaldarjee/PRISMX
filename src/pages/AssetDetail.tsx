@@ -24,7 +24,7 @@ import { NiftyDerivativeDashboard } from '../components/NiftyDerivativeDashboard
 import AdUnit from '../components/AdUnit';
 import { useProStatus } from '../hooks/useProStatus';
 import ProGate from '../components/ProGate';
-import { fetchWithRetry } from '../utils/apiHelpers';
+import { fetchWithRetry, parseApiJson } from '../utils/apiHelpers';
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -80,6 +80,45 @@ const getSentimentColorStyle = (label: string | undefined | null) => {
 };
 
 const API_BASE = window.location.port === '5173' ? 'http://localhost:3000' : '';
+
+function buildAnalysisFallbackPrediction(symbol: string, analysis: any): Prediction {
+  const entryZone = String(analysis?.entryZone || '');
+  const zoneNumbers = entryZone.match(/[\d,.]+/g)?.map((n) => Number(n.replace(/,/g, ''))).filter(Number.isFinite) || [];
+  const entryPrice = zoneNumbers.length >= 2
+    ? Number(((zoneNumbers[0] + zoneNumbers[1]) / 2).toFixed(2))
+    : Number((analysis?.target1 ? analysis.target1 / 1.05 : analysis?.stopLoss ? analysis.stopLoss / 0.97 : 100).toFixed(2));
+
+  return {
+    symbol,
+    signal: 'HOLD',
+    confidence: 50,
+    conviction: 'LOW',
+    weighted_score: 0,
+    timeframe: 'SWING',
+    agent_breakdown: {
+      technical: null,
+      macro: null,
+      ml: null,
+      sentiment: null
+    },
+    key_reasons: [
+      'Primary prediction stream was unavailable, so PRISMX loaded the basic analysis fallback.'
+    ],
+    risk_level: 'MEDIUM',
+    entry_price: entryPrice,
+    target_price: Number(analysis?.target1 || entryPrice * 1.05),
+    stop_loss: Number(analysis?.stopLoss || entryPrice * 0.97),
+    trade_plan: {
+      entry_range: analysis?.entryZone || `${entryPrice.toFixed(2)}`,
+      stop_loss: Number(analysis?.stopLoss || entryPrice * 0.97),
+      target_1: Number(analysis?.target1 || entryPrice * 1.05),
+      target_2: Number(analysis?.target2 || entryPrice * 1.08),
+      risk_reward_ratio: Number(analysis?.riskReward || 1.5),
+      action: 'HOLD'
+    },
+    timestamp: new Date().toISOString()
+  };
+}
 
 export function AssetDetail() {
   const { isPro } = useProStatus();
@@ -156,8 +195,16 @@ export function AssetDetail() {
           } catch (err: any) {
             if (err.name === 'AbortError') return;
             console.error('Prediction fetch error:', err);
-            setPredictionError(true);
-            setError(err.message || 'Unified detail stream failed to fetch.');
+            try {
+              const fallback = await fetchWithRetry(`${API_BASE}/api/analysis/${resolvedSymbol}`, controller.signal);
+              setPrediction(buildAnalysisFallbackPrediction(resolvedSymbol, fallback));
+              setPredictionError(false);
+            } catch (fallbackErr: any) {
+              if (fallbackErr.name === 'AbortError') return;
+              console.error('Prediction fallback fetch error:', fallbackErr);
+              setPredictionError(true);
+              setError(fallbackErr.message || err.message || 'Unified detail stream failed to fetch.');
+            }
           } finally {
             setPredictionLoading(false);
           }
@@ -167,8 +214,8 @@ export function AssetDetail() {
         (async () => {
           try {
             const res = await fetch(`${API_BASE}/api/history/${resolvedSymbol}?limit=252`, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await parseApiJson(res);
+            if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
             setHistory(data);
           } catch (err: any) {
             if (err.name === 'AbortError') return;
@@ -184,8 +231,8 @@ export function AssetDetail() {
         (async () => {
           try {
             const res = await fetch(`${API_BASE}/api/sentiment/${resolvedSymbol}`, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await parseApiJson(res);
+            if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
             setSentiment(data);
           } catch (err: any) {
             if (err.name === 'AbortError') return;
@@ -200,8 +247,8 @@ export function AssetDetail() {
         (async () => {
           try {
             const res = await fetch(`${API_BASE}/api/fundamentals/${resolvedSymbol}`, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await parseApiJson(res);
+            if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
             setFundamentals(data);
           } catch (err: any) {
             if (err.name === 'AbortError') return;
@@ -221,8 +268,8 @@ export function AssetDetail() {
           }
           try {
             const res = await fetch(`${API_BASE}/api/sip/${resolvedSymbol}`, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await parseApiJson(res);
+            if (!res.ok) throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
             setSip(data);
           } catch (err: any) {
             if (err.name === 'AbortError') return;

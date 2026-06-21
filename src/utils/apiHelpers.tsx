@@ -1,6 +1,21 @@
 import React from 'react';
 import { supabase } from '../services/supabase';
 
+export async function parseApiJson(response: Response): Promise<any> {
+  const text = await response.text();
+  if (!text.trim()) {
+    if (response.ok) return null;
+    throw new Error(`Server returned an empty response (HTTP ${response.status}).`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 180);
+    throw new Error(preview || `Server returned invalid JSON (HTTP ${response.status}).`);
+  }
+}
+
 export async function authFetch(url: string, signal?: AbortSignal) {
   const { data: { session } } = await supabase.auth.getSession();
   
@@ -23,8 +38,11 @@ export async function authFetch(url: string, signal?: AbortSignal) {
       return null;
     }
     
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const payload = await parseApiJson(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || payload?.error || `HTTP ${response.status}`);
+    }
+    return payload;
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
     console.error('authFetch error:', err.message);
@@ -55,8 +73,11 @@ export async function fetchWithRetry(
           console.warn('[API Auth] 401/403 persisted in fetchWithRetry.');
         }
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const payload = await parseApiJson(res);
+      if (!res.ok) {
+        throw new Error(payload?.detail || payload?.error || `HTTP ${res.status}`);
+      }
+      return payload;
     } catch (err: any) {
       if (err.name === 'AbortError') throw err;
       if (i === retries) throw err;

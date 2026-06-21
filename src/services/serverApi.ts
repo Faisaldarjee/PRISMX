@@ -59,6 +59,7 @@ db.exec(`
     close REAL,
     volume INTEGER,
     interval TEXT,
+    is_synthetic INTEGER DEFAULT 0,
     UNIQUE(symbol, date) ON CONFLICT REPLACE
   );
 
@@ -172,6 +173,18 @@ try {
   }
 } catch (e: any) {
   console.warn("[database] custom_assets column check/migration failed:", e.message);
+}
+
+// Self-healing migration to add 'is_synthetic' column to prices if it does not exist
+try {
+  const pricesCols = db.prepare("PRAGMA table_info(prices)").all() as any[];
+  const hasIsSynthetic = pricesCols.some(col => col.name === 'is_synthetic');
+  if (pricesCols.length > 0 && !hasIsSynthetic) {
+    console.log("[database] Migrating prices table: adding is_synthetic column...");
+    db.exec("ALTER TABLE prices ADD COLUMN is_synthetic INTEGER DEFAULT 0");
+  }
+} catch (e: any) {
+  console.warn("[database] prices column check/migration failed:", e.message);
 }
 
 // Check database seed for 20 preset assets
@@ -357,7 +370,8 @@ function generateSyntheticHistory(symbol: string, startDate: Date, endDate: Date
         high: parseFloat(dailyHigh.toFixed(2)),
         low: parseFloat(dailyLow.toFixed(2)),
         close: parseFloat(dailyClose.toFixed(2)),
-        volume: volume
+        volume: volume,
+        is_synthetic: 1
       });
 
       currentPrice = dailyClose;
@@ -578,14 +592,15 @@ export async function getPricesHistory(symbol: string, limit = 252): Promise<any
       
       if (yahooResult && yahooResult.length > 0) {
         const insertStmt = db.prepare(`
-          INSERT INTO prices (symbol, date, open, high, low, close, volume, interval)
-          VALUES (?, ?, ?, ?, ?, ?, ?, '1d')
+          INSERT INTO prices (symbol, date, open, high, low, close, volume, interval, is_synthetic)
+          VALUES (?, ?, ?, ?, ?, ?, ?, '1d', ?)
           ON CONFLICT(symbol, date) DO UPDATE SET
             open=excluded.open,
             high=excluded.high,
             low=excluded.low,
             close=excluded.close,
-            volume=excluded.volume
+            volume=excluded.volume,
+            is_synthetic=excluded.is_synthetic
         `);
         
         const transaction = db.transaction((records) => {
@@ -609,7 +624,8 @@ export async function getPricesHistory(symbol: string, limit = 252): Promise<any
               raw.high || raw.close || 0,
               raw.low || raw.close || 0,
               raw.close || 0,
-              raw.volume || 0
+              raw.volume || 0,
+              raw.is_synthetic || 0
             );
           }
         });
@@ -631,14 +647,15 @@ export async function getPricesHistory(symbol: string, limit = 252): Promise<any
     const fallbackData = generateSyntheticHistory(resolved, startDate, endDate);
     
     const insertStmt = db.prepare(`
-      INSERT INTO prices (symbol, date, open, high, low, close, volume, interval)
-      VALUES (?, ?, ?, ?, ?, ?, ?, '1d')
+      INSERT INTO prices (symbol, date, open, high, low, close, volume, interval, is_synthetic)
+      VALUES (?, ?, ?, ?, ?, ?, ?, '1d', ?)
       ON CONFLICT(symbol, date) DO UPDATE SET
         open=excluded.open,
         high=excluded.high,
         low=excluded.low,
         close=excluded.close,
-        volume=excluded.volume
+        volume=excluded.volume,
+        is_synthetic=excluded.is_synthetic
     `);
     
     const transaction = db.transaction((records) => {
@@ -652,7 +669,8 @@ export async function getPricesHistory(symbol: string, limit = 252): Promise<any
           raw.high || raw.close || 0,
           raw.low || raw.close || 0,
           raw.close || 0,
-          raw.volume || 0
+          raw.volume || 0,
+          raw.is_synthetic || 0
         );
       }
     });

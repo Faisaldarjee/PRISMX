@@ -148,7 +148,7 @@ function AppContent() {
     return () => clearInterval(timer);
   }, []);
 
-  // Sync Firebase onboarding status with state and local storage
+  // Sync onboarding status with state and local storage
   useEffect(() => {
     if (user && userProfile) {
       if (userProfile.onboarded) {
@@ -166,7 +166,7 @@ function AppContent() {
         // Dispatch to update active tab/context values in other open components
         window.dispatchEvent(new Event('storage'));
       } else {
-        // If they are logged in but don't have onboarding in their Firebase profile yet,
+        // If they are logged in but don't have onboarding in their user profile yet,
         // let's check if they have it in localStorage (onboarded as guest before log in) and sync it!
         const hasLocalOnboarded = localStorage.getItem('prism_onboarded') === 'true';
         if (hasLocalOnboarded && syncedOnboardingUserIdRef.current !== user.uid) {
@@ -531,7 +531,7 @@ function AppContent() {
             <div className="flex items-center justify-between gap-1">
               <span className="text-[9px] text-[#4A5568] font-data uppercase tracking-wider">Trading Desk</span>
               <span className={`text-[8px] font-data font-bold px-1.5 py-0.5 rounded uppercase leading-none ${
-                marketHours.status === 'NSE OPEN' ? 'bg-[#34A77A]/10 text-[#34A77A]' : 'bg-[#E05252]/10 text-[#E05252]'
+                marketHours.status === 'LIVE' || marketHours.status === 'PRE-OPEN' ? 'bg-[#34A77A]/10 text-[#34A77A]' : 'bg-[#E05252]/10 text-[#E05252]'
               }`}>
                 {marketHours.status}
               </span>
