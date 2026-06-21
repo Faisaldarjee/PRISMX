@@ -125,22 +125,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setError(null);
     setSuccess(null);
     setLoading(true);
+    console.log('[Auth] handleGoogleSignIn triggered');
+
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setError('Google sign-in timed out. Please try again.');
+      console.warn('[Auth] Google sign-in operation timed out after 15 seconds');
+    }, 15000);
+
     try {
+      console.log('[Auth] handleGoogleSignIn -> Calling logInGoogle()');
       await logInGoogle();
+      clearTimeout(timeoutId);
+      console.log('[Auth] Step 5: Redirecting to dashboard / closing modal');
       setSuccess('Logged in with Google successfully!');
       setTimeout(() => {
         onClose();
       }, 1000);
     } catch (err: any) {
-      console.error(err);
+      clearTimeout(timeoutId);
+      console.error('[Auth] handleGoogleSignIn caught error:', err);
       let errMsg = err.message || 'Google sign-in failed.';
-      if (err.code === 'auth/popup-blocked') {
-        errMsg = 'The sign-in popup was blocked by your browser. Please enable popups for this site, or try to enable it in settings.';
+      if (err.code === 'auth/popup-closed-by-user') {
+        errMsg = 'Sign-in popup was closed before completion. Please try again.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errMsg = 'The sign-in popup was blocked by your browser. Please allow popups for this site, or try to enable it in settings.';
       } else if (err.code === 'auth/operation-not-allowed') {
         errMsg = 'Google sign-in is disabled in your Firebase console. Please go to Firebase Console -> Authentication -> Sign-in method, click "Add new provider", select "Google", and click Enable.';
       }
       setError(errMsg);
-    } finally {
       setLoading(false);
     }
   };

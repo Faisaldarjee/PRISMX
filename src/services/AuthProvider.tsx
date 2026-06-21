@@ -181,10 +181,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentFirebaseUser);
       
       if (currentFirebaseUser) {
+        console.log('[Auth] Step 2: User authenticated with Firebase', currentFirebaseUser.email);
         const uId = currentFirebaseUser.uid;
         // 1. Sync UserProfile
         const userDocRef = doc(db, 'users', uId);
-        try {
+        
+        const syncProfile = async () => {
+          console.log('[Auth] Step 3: Writing user profile to Firestore');
           const userDoc = await getDoc(userDocRef);
           if (!userDoc.exists()) {
             const initialProfile: UserProfile = {
@@ -263,8 +266,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUserProfile(data as UserProfile);
             }
           }
+        };
+
+        try {
+          const timeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Firestore sync timed out')), 6000)
+          );
+          await Promise.race([syncProfile(), timeout]);
+          console.log('[Auth] Step 4: Profile sync complete');
         } catch (err) {
-          console.warn('Unable to sync profile:', err);
+          console.warn('[Auth] Unable to sync profile or timed out. Gracefully falling back to default user profile:', err);
+          setUserProfile({
+            userId: uId,
+            email: currentFirebaseUser.email || '',
+            displayName: currentFirebaseUser.displayName || 'Member',
+            createdAt: new Date(),
+            vIPStatus: 'FREE',
+            interestedSymbols: ['TATAMOTORS.NS', 'RELIANCE.NS']
+          });
         }
 
         // 2. Sync Watchlist with real-time Firestore subscription
@@ -409,13 +428,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logInGoogle = async (useRedirect = false) => {
+    console.log('[Auth] Step 1: Popup opening...');
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     if (useRedirect) {
       return signInWithRedirect(auth, provider);
     }
-    return signInWithPopup(auth, provider).then(() => {
-      // Success popup login
+    return signInWithPopup(auth, provider).then((result) => {
+      console.log('[Auth] Google popup sign-in successful');
+      return result;
     });
   };
 
