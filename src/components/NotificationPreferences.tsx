@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../services/AuthProvider';
-import { db } from '../services/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
 import { 
   Bell, 
   Mail, 
@@ -43,7 +41,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
 };
 
 export const NotificationPreferences: React.FC = () => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, updateNotificationPrefs } = useAuth();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -102,16 +100,7 @@ export const NotificationPreferences: React.FC = () => {
     setSaving(true);
     setSaveStatus('idle');
     try {
-      if (user) {
-        // Save to Firestore users/{uid}
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          notificationPrefs: newPrefs
-        });
-      } else {
-        // Save locally for guest
-        localStorage.setItem('prism_guest_notif_prefs', JSON.stringify(newPrefs));
-      }
+      await updateNotificationPrefs(newPrefs);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err) {

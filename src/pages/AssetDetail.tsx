@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getAuth } from 'firebase/auth';
+import { supabase } from '../services/supabase';
 import { 
   getPrediction, 
   getHistory, 
@@ -253,7 +253,8 @@ export function AssetDetail() {
     setRetraining(true);
     setRetrainSuccess(null);
     try {
-      const token = await getAuth().currentUser?.getIdToken();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch(`${API_BASE}/api/retrain/${resolvedSymbol}`, {
         method: 'POST',
         headers: {

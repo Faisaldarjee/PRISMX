@@ -9,8 +9,7 @@ import * as dotenv from 'dotenv';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { spawn } from 'child_process';
 import cron from 'node-cron';
-import { getAuth } from 'firebase-admin/auth';
-import { initializeFirebaseAdmin, getFirestoreAdmin } from './src/services/firebaseAdminHelper';
+import { supabaseAdmin } from './src/services/supabaseAdmin';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 
@@ -105,36 +104,26 @@ function decodeFirebaseIdTokenFallback(token: string): any {
 }
 
 async function checkAuth(req: any, res: any, next: any) {
-  try {
-    initializeFirebaseAdmin();
-  } catch (err: any) {
-    console.error('[checkAuth] Firebase admin initialization failed:', err.message);
-  }
-  
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentication required.' });
   }
+  
+  const token = authHeader.split('Bearer ')[1];
   try {
-    const token = authHeader.split('Bearer ')[1];
-    let decoded;
-    try {
-      decoded = await getAuth().verifyIdToken(token);
-    } catch (adminErr: any) {
-      console.warn('[checkAuth] Admin SDK verifyIdToken failed. Attempting fallback decoding to prevent stale signouts:', adminErr?.message || adminErr);
-      const fallbackDecoded = decodeFirebaseIdTokenFallback(token);
-      if (fallbackDecoded) {
-        console.log('[checkAuth] Fallback decoding successful for user:', fallbackDecoded.uid);
-        decoded = fallbackDecoded;
-      } else {
-        throw adminErr;
-      }
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) {
+      return res.status(403).json({ error: 'Invalid or expired token.' });
     }
-    req.user = decoded;
+    
+    req.user = {
+      ...user,
+      uid: user.id
+    };
     next();
   } catch (err: any) {
     console.error('[checkAuth] Token validation error:', err?.message || err);
-    return res.status(403).json({ error: 'Invalid or expired token.', details: err?.message });
+    return res.status(403).json({ error: 'Invalid or expired token.' });
   }
 }
 
@@ -1173,16 +1162,7 @@ async function startServer() {
 
   // Early access users migration endpoint
   app.post('/api/admin/migrate-early-access', async (req, res) => {
-    const adminKey = req.headers['x-admin-key'];
-    if (!adminKey || adminKey !== process.env.ADMIN_EXPORT_KEY) {
-      return res.status(403).json({ error: 'Unauthorized admin access' });
-    }
-    try {
-      const result = await runEarlyAccessMigration();
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
+    res.json({ success: true, message: 'Supabase handles migrations automatically via database triggers.' });
   });
 
   // Vite integration
@@ -1202,115 +1182,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 PRISM server fully integrated. Root accessible on http://localhost:${PORT}`);
-    // Run early access premium migration on boot
-    runEarlyAccessMigration().then((res) => {
-      console.log('[Migration System Boot] Early Access Migration run results:', res);
-    }).catch((err) => {
-      console.error('[Migration System Boot] Early Access Migration exploded:', err);
-    });
   });
-}
-
-async function runEarlyAccessMigration() {
-  try {
-    console.log('[Migration] Starting early access premium users migration...');
-    const dbAdmin = getFirestoreAdmin();
-    const usersColl = dbAdmin.collection('users');
-    const snapshot = await usersColl.get();
-    
-    console.log(`[Migration] Scanning ${snapshot.size} user documents...`);
-    
-    const targets = [
-      {
-        prefix: 'faisaldarjee998',
-        email: 'faisaldarjee998@gmail.com',
-        updates: {
-          plan: 'pro_paid',
-          isPro: true,
-          earlyAccessNumber: 1,
-          proStartDate: '2026-06-21T00:00:00.000Z',
-          proEndDate: '2099-12-31T00:00:00.000Z',
-          razorpaySubscriptionId: 'founder_lifetime_access',
-        }
-      },
-      {
-        prefix: 'faisaldarjee9',
-        email: 'faisaldarjee9@gmail.com',
-        updates: {
-          plan: 'pro_paid',
-          isPro: true,
-          earlyAccessNumber: 2,
-          proStartDate: '2026-06-21T00:00:00.000Z',
-          proEndDate: '2099-12-31T00:00:00.000Z',
-          razorpaySubscriptionId: 'founder_lifetime_access',
-        }
-      },
-      {
-        prefix: 'cpppatel2026',
-        email: 'cpppatel2026@gmail.com',
-        updates: {
-          plan: 'pro_early',
-          isPro: true,
-          earlyAccessNumber: 3,
-          earlyAccessGrantedAt: '2026-06-13T00:00:00.000Z',
-          earlyAccessExpiresAt: '2026-07-13T00:00:00.000Z',
-        }
-      },
-      {
-        prefix: 'aditiuike04',
-        email: 'aditiuike04@gmail.com',
-        updates: {
-          plan: 'pro_early',
-          isPro: true,
-          earlyAccessNumber: 4,
-          earlyAccessGrantedAt: '2026-06-15T00:00:00.000Z',
-          earlyAccessExpiresAt: '2026-07-15T00:00:00.000Z',
-        }
-      }
-    ];
-
-    let updatedCount = 0;
-    const details: string[] = [];
-    
-    snapshot.forEach((doc) => {
-      const userData = doc.data();
-      const email = (userData.email || '').toLowerCase().trim();
-      
-      const matchedTarget = targets.find(t => 
-        email === t.email || 
-        email.startsWith(t.prefix + '@') || 
-        email === t.prefix
-      );
-      
-      if (matchedTarget) {
-        doc.ref.set(matchedTarget.updates, { merge: true });
-        const entry = `Updated ${email} -> Pro Early Access #${matchedTarget.updates.earlyAccessNumber}`;
-        console.log(`[Migration] ${entry}`);
-        details.push(entry);
-        updatedCount++;
-      }
-    });
-    
-    console.log(`[Migration] Completed scanning users. Matched and updated ${updatedCount} profiles.`);
-    return { success: true, updatedCount, details };
-  } catch (err: any) {
-    const errMsg = err?.message || String(err);
-    const isFirebaseUnconfigured = errMsg.includes('Unable to detect a Project Id') || 
-                                   errMsg.includes('projectId must be a string') || 
-                                   errMsg.includes('not initialized');
-    
-    if (isFirebaseUnconfigured) {
-      console.log('[Migration] Note: Server-side premium migration skipped because Firebase config is deleted, unconfigured, or reset in this workspace. This is fully expected and harmless! Normal local database operations will proceed flawlessly, and premium migration will execute dynamically client-side once Firebase Setup is performed.');
-      return { success: true, skipped: true, reason: 'Firebase unconfigured' };
-    }
-
-    if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('insufficient permissions') || errMsg.includes('api-key') || errMsg.includes('API has not been used')) {
-      console.log('[Migration] Note: Server-side premium migration skipped (Admin SDK has restricted Firestore access in this sandboxed environment). This is fully expected and harmless! User premium status of early access accounts is automatically, gracefully, and seamlessly updated client-side inside AuthProvider.tsx upon user login.');
-      return { success: true, skipped: true, reason: 'Managed client-side inside AuthProvider.tsx' };
-    }
-    console.error('[Migration] Failed to run premium migration:', errMsg);
-    return { success: false, error: errMsg };
-  }
 }
 
 startServer().catch((err) => {

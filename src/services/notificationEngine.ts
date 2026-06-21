@@ -1,8 +1,6 @@
-import { FieldValue } from 'firebase-admin/firestore';
-import { initializeFirebaseAdmin, getFirestoreAdmin } from './firebaseAdminHelper';
+import { supabaseAdmin } from './supabaseAdmin';
 import { db, compilePrediction, getPricesHistory } from './serverApi';
 import { sendSignalEmail, sendDailySummaryEmail, sendEarningsAlertEmail } from './emailService';
-import { sendPushNotification } from './fcmService';
 import { TechnicalAgent } from './agents/technicalAgent';
 
 // Initialize the SQLite tables for logging
@@ -70,22 +68,21 @@ async function dispatchNotifications(
     return;
   }
 
-  // 1. In-App Notifications Channel
+  // 1. In-App Notifications Channel (Supabase)
   if (prefs.channelInApp !== false) {
     try {
-      await getFirestoreAdmin()
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .add({
+      const { error } = await supabaseAdmin
+        .from('notifications')
+        .insert({
+          user_id: userId,
           symbol,
           signal,
           price,
           description,
-          timestamp: FieldValue.serverTimestamp(),
           read: false
         });
       
+      if (error) throw error;
       logNotification(userId, symbol, signal, 'inapp', 1);
     } catch (e: any) {
       console.warn(`[NotificationEngine] Failed to save in-app message for ${userId}:`, e.message);
@@ -116,15 +113,9 @@ async function dispatchNotifications(
     }
   }
 
-  // 3. Browser Push Alerts Channel (FCM)
+  // 3. Browser Push Alerts Channel (FCM) — Disabled during Supabase Migration
   if (prefs.channelPush && fcmToken) {
-    try {
-      const title = `${signal === 'BUY' ? '🟢' : '🔴'} PRISMX Signal: ${symbol}`;
-      const success = await sendPushNotification(fcmToken, title, description, { symbol, signal });
-      logNotification(userId, symbol, signal, 'push', success ? 1 : 0);
-    } catch (e: any) {
-      console.warn(`[NotificationEngine] Push dispatch failure:`, e.message);
-    }
+    console.info('[NotificationEngine] Browser push alerts are disabled in Supabase configuration.');
   }
 }
 
@@ -142,21 +133,20 @@ async function dispatchCustomAlert(
   type: 'earnings' | 'sector' | 'sip',
   payload: any
 ) {
-  // 1. In-App Notifications Channel
+  // 1. In-App Notifications Channel (Supabase)
   if (prefs.channelInApp !== false) {
     try {
-      await getFirestoreAdmin()
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .add({
+      const { error } = await supabaseAdmin
+        .from('notifications')
+        .insert({
+          user_id: userId,
           symbol,
           signal: type.toUpperCase(),
           price: 0,
           description,
-          timestamp: FieldValue.serverTimestamp(),
           read: false
         });
+      if (error) throw error;
       logNotification(userId, symbol, signalKey, 'inapp', 1);
     } catch (e: any) {
       console.warn(`[NotificationEngine] Custom in-app write failure:`, e.message);
@@ -189,15 +179,9 @@ async function dispatchCustomAlert(
     }
   }
 
-  // 3. Browser Push Alerts Channel
+  // 3. Browser Push Alerts Channel — Disabled during Supabase Migration
   if (prefs.channelPush && fcmToken) {
-    try {
-      const title = `⚠️ PRISMX Alert: ${symbol}`;
-      const success = await sendPushNotification(fcmToken, title, description, { symbol, type });
-      logNotification(userId, symbol, signalKey, 'push', success ? 1 : 0);
-    } catch (e: any) {
-      console.warn(`[NotificationEngine] Custom push validation error:`, e.message);
-    }
+    console.info('[NotificationEngine] Browser push alerts are disabled in Supabase configuration.');
   }
 }
 
@@ -215,33 +199,30 @@ export interface CacheableUserProfile {
 
 export async function getUsersFromCacheOrFirestore(): Promise<CacheableUserProfile[]> {
   try {
-    initializeFirebaseAdmin();
-    const firestore = getFirestoreAdmin();
-    const snap = await firestore.collection('users').get();
-    const list: CacheableUserProfile[] = [];
-    snap.forEach(doc => {
-      const data = doc.data();
-      list.push({
-        id: doc.id,
-        email: data.email,
-        interestedSymbols: data.interestedSymbols || [],
-        fcmToken: data.fcmToken,
-        notificationPrefs: data.notificationPrefs || {
-          notifyHighConfidence: true,
-          notifyEarnings: true,
-          notifySector: true,
-          notifySip: true,
-          notifyAllSignals: false,
-          channelInApp: true,
-          channelEmail: true,
-          channelPush: false,
-          minConfidence: 80
-        }
-      });
-    });
-    return list;
+    const { data: profiles, error } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, email, interested_symbols, notification_prefs');
+
+    if (error) throw error;
+
+    return (profiles || []).map(p => ({
+      id: p.id,
+      email: p.email,
+      interestedSymbols: p.interested_symbols || [],
+      notificationPrefs: p.notification_prefs || {
+        notifyHighConfidence: true,
+        notifyEarnings: true,
+        notifySector: true,
+        notifySip: true,
+        notifyAllSignals: false,
+        channelInApp: true,
+        channelEmail: true,
+        channelPush: false,
+        minConfidence: 80
+      }
+    }));
   } catch (err: any) {
-    console.warn('[NotificationEngine] Firestore users collection query failed (likely Permission Denied). Falling back to SQLite User Profiles Cache:', err.message);
+    console.warn('[NotificationEngine] Supabase user query failed. Falling back to SQLite User Profiles Cache:', err.message);
     try {
       const rows = db.prepare('SELECT uid, email, displayName, interested_symbols, notification_prefs FROM user_profiles_cache').all() as any[];
       return rows.map(r => {
@@ -285,12 +266,6 @@ export async function checkAndSendNotifications() {
   console.log('[NotificationEngine] Starting active signal sweep across assets...');
   
   const users = await getUsersFromCacheOrFirestore();
-  let firestore: any = null;
-  try {
-    firestore = getFirestoreAdmin();
-  } catch (e: any) {
-    console.log('[NotificationEngine] Firebase Firestore is unconfigured or unavailable. Sweeps will operate using local SQLite fallback database configuration.');
-  }
   console.log(`[NotificationEngine] Sweeping ${users.length} user settings...`);
   
   for (const user of users) {
@@ -338,10 +313,14 @@ export async function checkAndSendNotifications() {
         
         let watchlistSymbols: string[] = [];
         try {
-          const wlDoc = await firestore.collection('users').doc(userId).collection('watchlist').doc('default').get();
-          watchlistSymbols = wlDoc.exists ? (wlDoc.data()?.symbols || []) : interestedSymbols;
+          const { data: wl, error } = await supabaseAdmin
+            .from('watchlists')
+            .select('symbols')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (error) throw error;
+          watchlistSymbols = wl?.symbols || interestedSymbols;
         } catch (wlErr) {
-          // If firestore read fails because of auth / permission issues, fallback to interestedSymbols
           watchlistSymbols = interestedSymbols;
         }
         
