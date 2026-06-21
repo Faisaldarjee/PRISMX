@@ -33,25 +33,32 @@ export async function createOrGetUserProfile(user: any): Promise<UserProfile> {
     if (userSnap.exists()) {
       const data = userSnap.data();
       const email = (user.email || '').toLowerCase().trim();
+      console.log('Checking founder access for:', email);
+      if (email === 'faisaldarjee9@gmail.com' || email === 'faisaldarjee998@gmail.com') {
+        console.log('Founder match found, granting lifetime pro');
+      }
+
       const targets = [
         {
           prefix: 'faisaldarjee998',
           updates: {
-            plan: 'pro_early' as const,
+            plan: 'pro_paid' as const,
             isPro: true,
             earlyAccessNumber: 1,
-            earlyAccessGrantedAt: '2026-06-10T00:00:00.000Z',
-            earlyAccessExpiresAt: '2026-07-10T00:00:00.000Z',
+            proStartDate: '2026-06-21T00:00:00.000Z',
+            proEndDate: '2099-12-31T00:00:00.000Z',
+            razorpaySubscriptionId: 'founder_lifetime_access',
           }
         },
         {
           prefix: 'faisaldarjee9',
           updates: {
-            plan: 'pro_early' as const,
+            plan: 'pro_paid' as const,
             isPro: true,
             earlyAccessNumber: 2,
-            earlyAccessGrantedAt: '2026-06-10T00:00:00.000Z',
-            earlyAccessExpiresAt: '2026-07-10T00:00:00.000Z',
+            proStartDate: '2026-06-21T00:00:00.000Z',
+            proEndDate: '2099-12-31T00:00:00.000Z',
+            razorpaySubscriptionId: 'founder_lifetime_access',
           }
         },
         {
@@ -88,9 +95,15 @@ export async function createOrGetUserProfile(user: any): Promise<UserProfile> {
           ...matched.updates
         };
         await setDoc(userRef, updatedProfile, { merge: true });
+        if (email === 'faisaldarjee9@gmail.com' || email === 'faisaldarjee998@gmail.com') {
+          console.log('Founder pro grant complete');
+        }
         return updatedProfile as UserProfile;
       }
       
+      if (matched && (email === 'faisaldarjee9@gmail.com' || email === 'faisaldarjee998@gmail.com')) {
+        console.log('Founder pro grant complete');
+      }
       return data as UserProfile;
     }
   } catch (err) {

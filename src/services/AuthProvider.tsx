@@ -205,15 +205,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             const data = userDoc.data();
             const email = (currentFirebaseUser.email || '').toLowerCase().trim();
+            console.log('Checking founder access for:', email);
+            if (email === 'faisaldarjee9@gmail.com' || email === 'faisaldarjee998@gmail.com') {
+              console.log('Founder match found, granting lifetime pro');
+            }
+
             const targets = [
               {
                 prefix: 'faisaldarjee998',
                 updates: {
-                  plan: 'pro_early' as const,
+                  plan: 'pro_paid' as const,
                   isPro: true,
                   earlyAccessNumber: 1,
-                  earlyAccessGrantedAt: '2026-06-10T00:00:00.000Z',
-                  earlyAccessExpiresAt: '2026-07-10T00:00:00.000Z',
+                  proStartDate: '2026-06-21T00:00:00.000Z',
+                  proEndDate: '2099-12-31T00:00:00.000Z',
+                  razorpaySubscriptionId: 'founder_lifetime_access',
                 }
               },
               {
@@ -264,6 +270,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUserProfile(updatedProfile as unknown as UserProfile);
             } else {
               setUserProfile(data as UserProfile);
+            }
+
+            if (matched && (email === 'faisaldarjee9@gmail.com' || email === 'faisaldarjee998@gmail.com')) {
+              console.log('Founder pro grant complete');
             }
           }
         };
@@ -427,8 +437,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const logInGoogle = async (useRedirect = false) => {
-    console.log('[Auth] Step 1: Popup opening...');
+  const logInGoogle = async (useRedirect = true) => {
+    console.log('[Auth] Step 1: Popup/Redirect opening...');
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     if (useRedirect) {

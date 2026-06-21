@@ -134,14 +134,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }, 15000);
 
     try {
-      console.log('[Auth] handleGoogleSignIn -> Calling logInGoogle()');
-      await logInGoogle();
+      console.log('[Auth] handleGoogleSignIn -> Calling logInGoogle(true) [Redirect]');
       clearTimeout(timeoutId);
-      console.log('[Auth] Step 5: Redirecting to dashboard / closing modal');
-      setSuccess('Logged in with Google successfully!');
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      await logInGoogle(true);
+      console.log('[Auth] Redirect initiated successfully.');
+      setSuccess('Redirecting to Google Sign-In...');
     } catch (err: any) {
       clearTimeout(timeoutId);
       console.error('[Auth] handleGoogleSignIn caught error:', err);

@@ -228,6 +228,7 @@ async function startServer() {
   // Basic security and logging
   app.use(helmet({
     contentSecurityPolicy: false, // Disable for Vite dev
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
   }));
 
   // Rate Limiting (FIX 2) - Scaled up for stable sandbox performance and to prevent false positives from shared gateway IPs
@@ -1224,11 +1225,12 @@ async function runEarlyAccessMigration() {
         prefix: 'faisaldarjee998',
         email: 'faisaldarjee998@gmail.com',
         updates: {
-          plan: 'pro_early',
+          plan: 'pro_paid',
           isPro: true,
           earlyAccessNumber: 1,
-          earlyAccessGrantedAt: '2026-06-10T00:00:00.000Z',
-          earlyAccessExpiresAt: '2026-07-10T00:00:00.000Z',
+          proStartDate: '2026-06-21T00:00:00.000Z',
+          proEndDate: '2099-12-31T00:00:00.000Z',
+          razorpaySubscriptionId: 'founder_lifetime_access',
         }
       },
       {
