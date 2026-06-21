@@ -1171,7 +1171,11 @@ async function startServer() {
   });
 
   // Early access users migration endpoint
-  app.get('/api/admin/migrate-early-access', async (req, res) => {
+  app.post('/api/admin/migrate-early-access', async (req, res) => {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_EXPORT_KEY) {
+      return res.status(403).json({ error: 'Unauthorized admin access' });
+    }
     try {
       const result = await runEarlyAccessMigration();
       res.json(result);

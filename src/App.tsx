@@ -275,14 +275,13 @@ function AppContent() {
     return (
       <>
         <Landing 
-          onEnterGuestMode={() => {
+          onOpenAuth={() => {
             if (user) {
               navigate('/');
             } else {
               setAuthModalOpen(true);
             }
           }} 
-          onOpenAuth={() => setAuthModalOpen(true)} 
         />
         <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       </>
@@ -432,7 +431,7 @@ function AppContent() {
                   onClick={() => setAuthModalOpen(true)}
                   className="w-full py-1.5 bg-[#D4A843] hover:bg-[#E8C070] text-[#05070C] text-[10.5px] font-data tracking-wider rounded-lg cursor-pointer transition-all active:scale-[0.98] shadow-md shadow-[#D4A843]/10 font-bold"
                 >
-                  SECURE_CLOUD_SYNC
+                  Sign In
                 </button>
               </div>
             )}

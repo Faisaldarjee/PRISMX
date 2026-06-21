@@ -358,7 +358,7 @@ export default function Onboarding({ onComplete, onSkip, onCancel }: OnboardingP
 
       {/* Safety Compliance Warning line */}
       <div className="w-full text-center relative z-10 text-[11px] font-sans text-[#4A5568]">
-        🔐 Information is persisted locally in guest mode or synced to protected Cloud structures. Fully isolated encryption.
+        🔐 Information is persisted locally or synced to protected Cloud structures. Fully isolated encryption.
       </div>
     </div>
   );

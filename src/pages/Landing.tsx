@@ -20,11 +20,10 @@ import { PrismLogo } from '../components/PrismLogo';
 import { useAuth } from '../services/AuthProvider';
 
 interface LandingProps {
-  onEnterGuestMode: () => void;
   onOpenAuth: () => void;
 }
 
-export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) {
+export default function Landing({ onOpenAuth }: LandingProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
@@ -116,14 +115,14 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <button 
-                onClick={onEnterGuestMode}
+                onClick={onOpenAuth}
                 className="clay-badge-gold hover:opacity-90 tracking-wide text-xs flex items-center gap-1 cursor-pointer"
               >
                 Enter Dashboard <ChevronRight size={13} />
               </button>
             ) : (
               <button 
-                onClick={onEnterGuestMode}
+                onClick={onOpenAuth}
                 className="py-1.5 px-4 bg-transparent border border-[rgba(255,255,255,0.08)] hover:border-[#D4A843]/30 hover:bg-[#D4A843]/5 text-[#E8C070] text-xs font-mono rounded-lg transition-all cursor-pointer flex items-center gap-1.5 animate-pulse"
               >
                 Try Free <ArrowRight size={13} />
@@ -158,14 +157,14 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
             <div className="pt-4 border-t border-[rgba(255,255,255,0.06)] flex flex-col gap-3">
               {user ? (
                 <button 
-                  onClick={onEnterGuestMode}
+                  onClick={onOpenAuth}
                   className="w-full py-2 bg-[#D4A843] text-[#080A0F] font-bold text-center text-xs rounded-lg cursor-pointer"
                 >
                   Enter Dashboard
                 </button>
               ) : (
                 <button 
-                  onClick={() => { setMobileMenuOpen(false); onEnterGuestMode(); }}
+                  onClick={() => { setMobileMenuOpen(false); onOpenAuth(); }}
                   className="w-full py-2 bg-[#D4A843] text-black text-xs text-center font-bold rounded-lg cursor-pointer animate-pulse"
                 >
                   Try Free
@@ -261,7 +260,7 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
         {/* CTA Actions Wrapper */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-5">
           <button 
-            onClick={onEnterGuestMode}
+            onClick={onOpenAuth}
             className="bg-gradient-to-r from-[#D4A843] to-[#B8912E] hover:brightness-110 text-[#080A0F] font-bold text-sm tracking-widest py-3 px-6 rounded-xl shadow-[3px_3px_6px_rgba(0,0,0,0.4)] transition-all flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto text-center"
           >
             Launch Terminal <ArrowRight size={14} className="stroke-[3]" />
@@ -412,7 +411,7 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
               Consensus scanner is powered by real-time multi-agent quantitative calculations.
             </span>
             <button 
-              onClick={onEnterGuestMode}
+              onClick={onOpenAuth}
               className="text-[#E8C070] hover:text-[#fbf0d0] text-[11px] font-bold flex items-center gap-1 cursor-pointer bg-transparent border border-[#D4A843]/20 py-1.5 px-3 rounded-lg"
             >
               Run All Scanners <ArrowRight size={11} />
@@ -599,7 +598,7 @@ export default function Landing({ onEnterGuestMode, onOpenAuth }: LandingProps) 
             </div>
 
             <button 
-              onClick={onEnterGuestMode}
+              onClick={onOpenAuth}
               className="w-full py-3 px-6 border border-[rgba(255,255,255,0.08)] hover:border-[#D4A843]/30 text-[#8892A4] hover:text-[#F0F4FF] bg-transparent text-xs font-data rounded-xl transition-all cursor-pointer text-center"
             >
               Launch Free Workspace
