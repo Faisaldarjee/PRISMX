@@ -54,7 +54,6 @@ dotenv.config();
 
 async function checkAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
-  console.log('Auth header received:', authHeader?.substring(0, 30));
   
   if (!authHeader?.startsWith('Bearer ')) {
     console.warn('[checkAuth] Missing or malformed Authorization header');
@@ -62,7 +61,6 @@ async function checkAuth(req: any, res: any, next: any) {
   }
   
   const token = authHeader.split('Bearer ')[1];
-  console.log('Token extracted (first 20 chars):', token?.substring(0, 20));
   
   try {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
@@ -76,7 +74,6 @@ async function checkAuth(req: any, res: any, next: any) {
       return res.status(403).json({ error: 'Invalid or expired token.' });
     }
     
-    console.log('Auth successful for user:', user.email);
     req.user = {
       ...user,
       uid: user.id
@@ -132,6 +129,27 @@ async function startServer() {
       await verifyPendingPredictions();
     } catch (err: any) {
       console.error('[Scheduler] 4:30 PM daily verification error:', err.message);
+    }
+  }, {
+    timezone: 'Asia/Kolkata'
+  });
+
+  // Daily NSE Bhavcopy ingestion — 6:30 PM IST (13:00 UTC)
+  cron.schedule('30 18 * * 1-5', async () => {
+    console.log('[Cron] Starting daily NSE Bhavcopy ingestion...');
+    try {
+      const { ingestBhavcopDay, isTodayIngested } = 
+        await import('./src/services/bhavCopyService');
+      
+      if (isTodayIngested()) {
+        console.log('[Cron] Today bhavcopy already ingested, skipping.');
+        return;
+      }
+      
+      const result = await ingestBhavcopDay(new Date());
+      console.log('[Cron] Bhavcopy ingestion result:', result);
+    } catch (e) {
+      console.error('[Cron] Bhavcopy ingestion failed:', e);
     }
   }, {
     timezone: 'Asia/Kolkata'
@@ -245,9 +263,8 @@ async function startServer() {
     return trimmed.trim();
   };
 
-  // Temporary admin database export endpoint for local backups/downloads
-  app.get('/api/admin/export-db', (req, res) => {
-    const adminKey = req.header('X-Admin-Key');
+  const checkAdminKey = (req: any, res: any, next: any) => {
+    const adminKey = req.header('X-Admin-Key') || req.headers['x-admin-key'];
     const expectedKey = cleanEnvVal(process.env.ADMIN_EXPORT_KEY);
     
     if (!expectedKey) {
@@ -258,7 +275,11 @@ async function startServer() {
     if (!adminKey || adminKey !== expectedKey) {
       return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
     }
-    
+    next();
+  };
+
+  // Temporary admin database export endpoint for local backups/downloads
+  app.get('/api/admin/export-db', checkAdminKey, (req, res) => {
     let dbFilePath = path.join(process.cwd(), 'data', 'predictions.db');
     if (!fs.existsSync(dbFilePath)) {
       dbFilePath = path.join('/tmp', 'predictions.db');
@@ -276,19 +297,7 @@ async function startServer() {
   });
 
   // Trigger notification sweeps immediately for validation/debugging
-  app.get('/api/admin/notifications/check', async (req, res) => {
-    const adminKey = req.header('X-Admin-Key');
-    const expectedKey = cleanEnvVal(process.env.ADMIN_EXPORT_KEY);
-    
-    if (!expectedKey) {
-      console.error('[Admin] ADMIN_EXPORT_KEY environment variable is not defined.');
-      return res.status(500).json({ detail: 'Server security configuration error.' });
-    }
-    
-    if (!adminKey || adminKey !== expectedKey) {
-      return res.status(401).json({ detail: 'Unauthorized. Valid X-Admin-Key header is required.' });
-    }
-    
+  app.get('/api/admin/notifications/check', checkAdminKey, async (req, res) => {
     console.log('[Admin API] Manual notification sweep triggered...');
     try {
       const { checkAndSendNotifications } = await import('./src/services/notificationEngine');
@@ -301,14 +310,7 @@ async function startServer() {
   });
 
   // Trigger daily summary summaries immediately for verification/debugging
-  app.get('/api/admin/notifications/summary', async (req, res) => {
-    const adminKey = req.header('X-Admin-Key') || req.query.key;
-    const expectedKey = process.env.ADMIN_EXPORT_KEY || 'PrismBackup2026';
-    
-    if (!adminKey || adminKey !== expectedKey) {
-      return res.status(401).json({ detail: 'Unauthorized. Valid key is required.' });
-    }
-    
+  app.get('/api/admin/notifications/summary', checkAdminKey, async (req, res) => {
     console.log('[Admin API] Manual summary dispatch triggered...');
     try {
       const { sendDailySummary } = await import('./src/services/notificationEngine');
@@ -317,6 +319,39 @@ async function startServer() {
     } catch (err: any) {
       console.error('[Admin API] Summary error:', err.message);
       return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Manual trigger for today's bhavcopy
+  app.post('/api/admin/ingest-bhavcopy', checkAdminKey, async (req, res) => {
+    try {
+      const { ingestBhavcopDay } = await import('./src/services/bhavCopyService');
+      const result = await ingestBhavcopDay(new Date());
+      res.json({ 
+        success: true, 
+        message: `Ingested ${result.rows} rows for ${result.date}`,
+        result 
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Backfill last N days
+  app.post('/api/admin/backfill-bhavcopy', checkAdminKey, async (req, res) => {
+    const days = parseInt(req.query.days as string) || 30;
+    try {
+      const { backfillBhavcopy } = await import('./src/services/bhavCopyService');
+      // Run in background — don't await (takes time)
+      backfillBhavcopy(days).then(() => {
+        console.log('[Bhavcopy] Background backfill complete');
+      });
+      res.json({ 
+        success: true, 
+        message: `Backfill started for last ${days} trading days. Running in background.`
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
     }
   });
 
@@ -375,7 +410,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/assets/import', async (req, res) => {
+  app.post('/api/assets/import', checkAuth, async (req, res) => {
     console.log('Import request for:', req.body.symbol);
     try {
       const { symbol } = req.body;
@@ -390,7 +425,7 @@ async function startServer() {
     }
   });
 
-  app.delete('/api/assets/:symbol', async (req, res) => {
+  app.delete('/api/assets/:symbol', checkAuth, async (req, res) => {
     try {
       const { symbol } = req.params;
       if (!symbol) {
@@ -640,7 +675,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/accuracy/backtest/:symbol', async (req, res) => {
+  app.post('/api/accuracy/backtest/:symbol', checkAuth, async (req, res) => {
     try {
       const result = await runHistoricalBacktest(req.params.symbol);
       res.json(result);
@@ -671,7 +706,7 @@ async function startServer() {
     }
   });
 
-  app.get('/api/analysis/:symbol', async (req, res) => {
+  app.get('/api/analysis/:symbol', checkAuth, async (req, res) => {
     try {
       const symbol = req.params.symbol;
       const prediction = await compilePrediction(symbol);
@@ -1135,7 +1170,7 @@ async function startServer() {
   });
 
   // Early access users migration endpoint
-  app.post('/api/admin/migrate-early-access', async (req, res) => {
+  app.post('/api/admin/migrate-early-access', checkAdminKey, async (req, res) => {
     res.json({ success: true, message: 'Supabase handles migrations automatically via database triggers.' });
   });
 

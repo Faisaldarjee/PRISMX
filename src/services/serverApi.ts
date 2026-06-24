@@ -561,9 +561,34 @@ export function resolveSymbol(symbol: string): string {
   return withNS;
 }
 
-// Lazy/eager loading history helper with local database write-through caching
 export async function getPricesHistory(symbol: string, limit = 252): Promise<any[]> {
   const resolved = resolveSymbol(symbol);
+  
+  // Check if we have enough real (non-synthetic) data
+  const realDataCount = db.prepare(
+    `SELECT COUNT(*) as count FROM prices 
+     WHERE symbol = ? AND is_synthetic = 0`
+  ).get(resolved) as any;
+
+  if (realDataCount?.count >= 50) {
+    // We have enough real data — serve from DB directly
+    const prices = db.prepare(
+      `SELECT date, open, high, low, close, volume FROM prices WHERE symbol = ? 
+       ORDER BY date DESC LIMIT ?`
+    ).all(resolved, limit) as any[];
+    
+    if (prices.length >= 50) {
+      console.log(`[Cache HIT - Real] ${resolved}: ${prices.length} rows from SQLite`);
+      return prices.map(r => ({
+        date: r.date,
+        open: Number(r.open),
+        high: Number(r.high),
+        low: Number(r.low),
+        close: Number(r.close),
+        volume: Number(r.volume)
+      })).reverse(); // oldest first
+    }
+  }
   
   // 1. Try reading from database first
   const selectQuery = db.prepare(`
@@ -706,8 +731,6 @@ export async function runBackgroundSync() {
 
 // GET /api/assets implementation
 export async function getAssetsList(): Promise<any[]> {
-  const assets: any[] = [];
-  
   // Retrieve custom assets from SQLite
   let customList: any[] = [];
   try {
@@ -716,7 +739,7 @@ export async function getAssetsList(): Promise<any[]> {
     console.warn('custom_assets table not initialized or empty:', e);
   }
 
-  for (const c of customList) {
+  const assetJobs = customList.map(async (c) => {
     try {
       const history = await getPricesHistory(c.symbol, 2).catch(() => []);
       const lastBar = history[history.length - 1];
@@ -727,7 +750,7 @@ export async function getAssetsList(): Promise<any[]> {
         changePercent = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
       }
 
-      assets.push({
+      return {
         symbol: c.symbol,
         name: c.name,
         type: c.type,
@@ -735,11 +758,11 @@ export async function getAssetsList(): Promise<any[]> {
         last_price: lastBar ? lastBar.close : null,
         change_percent: changePercent,
         last_date: lastBar ? lastBar.date : null
-      });
+      };
     } catch (e: any) {
       console.warn(`Could not resolve last price for ${c.symbol}:`, e.message);
 
-      assets.push({
+      return {
         symbol: c.symbol,
         name: c.name,
         type: c.type,
@@ -747,10 +770,12 @@ export async function getAssetsList(): Promise<any[]> {
         last_price: null,
         change_percent: null,
         last_date: null
-      });
+      };
     }
-  }
-  return assets;
+  });
+
+  const results = await Promise.all(assetJobs);
+  return results.filter(Boolean);
 }
 
 // Register and import a new custom symbol from Yahoo Finance dynamically
