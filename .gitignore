@@ -30,3 +30,10 @@ npm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# SQLite databases - NEVER commit binary DB files
+data/*.db
+data/*.db-wal
+data/*.db-shm
+*.sqlite
+*.sqlite3
