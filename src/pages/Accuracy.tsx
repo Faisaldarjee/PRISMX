@@ -7,6 +7,7 @@ import {
 import { AccuracyData } from '../types';
 import AdUnit from '../components/AdUnit';
 import { useProStatus } from '../hooks/useProStatus';
+import { supabase } from '../services/supabase';
 import { 
   AreaChart, 
   Area, 
@@ -99,12 +100,16 @@ export function Accuracy() {
     setBacktestResult(null);
     setBacktestError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       // POST call to run backtest
       const res = await fetch(`/api/accuracy/backtest/${encodeURIComponent(backtestSymbol)}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers
       }).then(r => r.json());
 
       if (res && !res.error) {

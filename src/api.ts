@@ -20,7 +20,11 @@ async function fetchJson<T>(url: string, options?: RequestInit, retries = 4, del
     const isProtected = url.includes('/api/predict/') || 
                         url.includes('/api/predict-all') ||
                         url.includes('/api/gemini/') ||
-                        url.includes('/api/retrain/');
+                        url.includes('/api/retrain/') ||
+                        url.includes('/api/assets/import') ||
+                        url.includes('/api/accuracy/backtest/') ||
+                        url.includes('/api/analysis/') ||
+                        (url.includes('/api/assets/') && !url.includes('/api/assets/search'));
                         
     if (isProtected) {
       try {

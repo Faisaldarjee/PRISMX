@@ -55,7 +55,14 @@ export async function fetchWithRetry(
   signal: AbortSignal,
   retries = 2
 ): Promise<any> {
-  const isProtected = url.includes('/api/predict') || url.includes('/api/gemini') || url.includes('/api/retrain');
+  const isProtected = 
+    url.includes('/api/predict') || 
+    url.includes('/api/gemini') || 
+    url.includes('/api/retrain') ||
+    url.includes('/api/assets/import') ||
+    url.includes('/api/accuracy/backtest') ||
+    url.includes('/api/analysis') ||
+    (url.includes('/api/assets/') && !url.includes('/api/assets/search'));
   for (let i = 0; i <= retries; i++) {
     try {
       const headers: HeadersInit = {

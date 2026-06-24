@@ -8,6 +8,7 @@ import {
 } from '../utils/apiHelpers';
 import { Asset } from '../types';
 import { useAuth } from '../services/AuthProvider';
+import { supabase } from '../services/supabase';
 import { 
   Search, 
   Coins, 
@@ -164,9 +165,15 @@ export function AssetsList() {
     setImporting(true);
     setImportMessage(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const res = await fetch('/api/assets/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ symbol })
       });
       
@@ -205,9 +212,15 @@ export function AssetsList() {
     setImporting(true);
     setImportMessage(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const res = await fetch('/api/assets/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ symbol: query })
       });
       
@@ -257,8 +270,15 @@ export function AssetsList() {
     if (!deleteConfirmSymbol) return;
     setDeleting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const res = await fetch(`/api/assets/${encodeURIComponent(deleteConfirmSymbol)}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       }).then(r => r.json());
 
       if (res.error) throw new Error(res.error);
@@ -300,13 +320,20 @@ export function AssetsList() {
     let failCount = 0;
     const failedList: string[] = [];
 
+    const { data: { session } } = await supabase.auth.getSession();
+
     for (let i = 0; i < symbols.length; i++) {
       const sym = symbols[i];
       setBulkProgress(`Importing ${i + 1}/${symbols.length}: ${sym}...`);
       try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
         const res = await fetch('/api/assets/import', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ symbol: sym })
         });
         
