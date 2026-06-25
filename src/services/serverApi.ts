@@ -14,6 +14,7 @@ const yahooFinance = new YahooFinance({
 });
 import { subDays, format } from 'date-fns';
 import { TechnicalAgent } from './agents/technicalAgent';
+import { RSI, MACD, BollingerBands } from 'technicalindicators';
 import { GoogleGenAI } from '@google/genai';
 import { GeminiAgent } from './agents/geminiAgent';
 import { FundamentalData } from '../types';
@@ -92,6 +93,12 @@ db.exec(`
     macro_signal TEXT,
     ml_signal TEXT,
     sentiment_signal TEXT,
+    smc_signal TEXT,
+    smc_confidence REAL,
+    smc_reason TEXT,
+    market_regime TEXT,
+    outcome TEXT,
+    verified_at TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(symbol, signal_date) ON CONFLICT REPLACE
   );
@@ -187,6 +194,29 @@ try {
   console.warn("[database] prices column check/migration failed:", e.message);
 }
 
+// Self-healing migrations for new accuracy_logs columns
+const newAccuracyLogsColumns = [
+  { name: 'smc_signal', type: 'TEXT' },
+  { name: 'smc_confidence', type: 'REAL' },
+  { name: 'smc_reason', type: 'TEXT' },
+  { name: 'market_regime', type: 'TEXT' },
+  { name: 'outcome', type: 'TEXT' },
+  { name: 'verified_at', type: 'TEXT' },
+];
+
+for (const col of newAccuracyLogsColumns) {
+  try {
+    db.prepare(
+      `ALTER TABLE accuracy_logs ADD COLUMN ${col.name} ${col.type}`
+    ).run();
+    console.log(`[DB Migration] Added column ${col.name} to accuracy_logs`);
+  } catch (e: any) {
+    if (!e.message.includes('duplicate column')) {
+      console.warn(`[DB Migration] Error adding column ${col.name} to accuracy_logs:`, e.message);
+    }
+  }
+}
+
 // Check database seed for 20 preset assets
 try {
   const countRow = db.prepare("SELECT COUNT(*) as count FROM custom_assets").get() as any;
@@ -244,31 +274,56 @@ export function addTradingDays(date: Date, days: number): Date {
 }
 
 // Log real predictions automatically
-export function logPrediction(
-  symbol: string, 
-  signal: string, 
-  confidence: number, 
-  price: number, 
-  agentSignals: { technical: string; macro: string; ml: string; sentiment: string }
-) {
+export function logPrediction(params: {
+  symbol: string;
+  signal: string;
+  confidence: number;
+  entryPrice: number;
+  agentSignals?: {
+    technical?: string;
+    sentiment?: string;
+    macro?: string;
+    ml?: string;
+    smc?: string;
+    smcConfidence?: number;
+    smcReason?: string;
+  };
+  marketRegime?: string;
+}) {
   const verificationDate = addTradingDays(new Date(), 5);
+  const signalDate = new Date().toISOString().split('T')[0];
+  const verificationDateStr = verificationDate.toISOString().split('T')[0];
+  const now = new Date().toISOString();
+
   try {
     db.prepare(`
-      INSERT OR IGNORE INTO accuracy_logs 
+      INSERT OR REPLACE INTO accuracy_logs 
       (symbol, signal, confidence, entry_price, 
-       signal_date, verification_date,
-       technical_signal, macro_signal, 
-       ml_signal, sentiment_signal)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      symbol, signal, confidence, price,
-      new Date().toISOString().split('T')[0],
-      verificationDate.toISOString().split('T')[0],
-      agentSignals.technical,
-      agentSignals.macro,
-      agentSignals.ml,
-      agentSignals.sentiment
-    );
+       signal_date, verification_date, created_at,
+       technical_signal, macro_signal, ml_signal, sentiment_signal,
+       smc_signal, smc_confidence, smc_reason, market_regime)
+      VALUES 
+      (@symbol, @signal, @confidence, @entryPrice, 
+       @signalDate, @verificationDate, @now,
+       @technical, @macro, @ml, @sentiment,
+       @smc, @smcConfidence, @smcReason, @marketRegime)
+    `).run({
+      symbol: params.symbol,
+      signal: params.signal,
+      confidence: params.confidence,
+      entryPrice: params.entryPrice,
+      signalDate,
+      verificationDate: verificationDateStr,
+      now,
+      technical: params.agentSignals?.technical || null,
+      macro: params.agentSignals?.macro || null,
+      ml: params.agentSignals?.ml || null,
+      sentiment: params.agentSignals?.sentiment || null,
+      smc: params.agentSignals?.smc || null,
+      smcConfidence: params.agentSignals?.smcConfidence || null,
+      smcReason: params.agentSignals?.smcReason || null,
+      marketRegime: params.marketRegime || null,
+    });
   } catch (err: any) {
     console.error("[Accuracy] Failed to log prediction:", err.message);
   }
@@ -1359,6 +1414,20 @@ export function getAccuracyReport(): any {
     };
   }
   
+  // Add SMC accuracy query
+  const smcAccuracy = db.prepare(`
+    SELECT 
+      COUNT(*) as total,
+      SUM(CASE 
+        WHEN (smc_signal = 'BULLISH' AND outcome = 'WIN') OR
+             (smc_signal = 'BEARISH' AND outcome = 'LOSS_AVOIDED')
+        THEN 1 ELSE 0 
+      END) as correct
+    FROM accuracy_logs 
+    WHERE smc_signal IS NOT NULL 
+    AND outcome IS NOT NULL
+  `).get() as any;
+
   return {
     status: 'LIVE',
     verified_predictions: overall.total,
@@ -1371,7 +1440,14 @@ export function getAccuracyReport(): any {
       "TECHNICAL": byAgent.technical || 50,
       "MACRO": byAgent.macro || 50,
       "ML": byAgent.ml || 50,
-      "SENTIMENT": byAgent.sentiment || 50
+      "SENTIMENT": byAgent.sentiment || 50,
+      "SMC": {
+        total: smcAccuracy?.total || 0,
+        correct: smcAccuracy?.correct || 0,
+        accuracy: smcAccuracy?.total > 0 
+          ? smcAccuracy.correct / smcAccuracy.total 
+          : null
+      }
     } : null,
     total_predictions: overall.total,
     period_days: 'All time (since launch)',
@@ -1416,18 +1492,24 @@ export async function verifyPendingPredictions() {
       wasCorrect = 1;
     }
     
+    const outcome = actualPrice > pred.entry_price ? 'WIN' : 'LOSS_AVOIDED';
+    const verifiedAt = new Date().toISOString();
+
     // Update the log with real outcome
     db.prepare(`
       UPDATE accuracy_logs 
       SET actual_price = ?,
           was_correct = ?,
-          pnl_percent = ?
+          pnl_percent = ?,
+          outcome = ?,
+          verified_at = ?
       WHERE id = ?
-    `).run(actualPrice, wasCorrect, pnlPercent, pred.id);
+    `).run(actualPrice, wasCorrect, pnlPercent, outcome, verifiedAt, pred.id);
     
     console.log(`[Accuracy] Verified ${pred.symbol} ${pred.signal}:
       Entry ₹${pred.entry_price} → 
       Actual ₹${actualPrice} → 
+      Outcome ${outcome} →
       ${wasCorrect ? 'CORRECT ✅' : 'WRONG ❌'}`);
   }
   
@@ -1436,6 +1518,77 @@ export async function verifyPendingPredictions() {
 
 // Simple but authentic machine learning: Let's train a Logistic Regression via Stochastic Gradient Descent!
 // This calculates real optimal weights for each feature on this specific asset!
+export function detectMarketRegime(prices: any[]): 
+  'TRENDING' | 'RANGING' | 'HIGH_VOLATILITY' {
+  if (prices.length < 20) return 'RANGING';
+  
+  const closes = prices.map(p => Number(p.close));
+  const recent = closes.slice(-20);
+  
+  // Calculate ATR for volatility
+  const atrValues: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    const tr = Math.max(
+      Number(prices[i].high ?? prices[i].close) - Number(prices[i].low ?? prices[i].close),
+      Math.abs(Number(prices[i].high ?? prices[i].close) - Number(prices[i - 1].close)),
+      Math.abs(Number(prices[i].low ?? prices[i].close) - Number(prices[i - 1].close))
+    );
+    atrValues.push(tr);
+  }
+  const atr = atrValues.slice(-14).reduce((a, b) => a + b, 0) / 14;
+  const currentPrice = closes[closes.length - 1];
+  const atrPct = atr / currentPrice;
+  
+  // High volatility check (ATR > 3% of price)
+  if (atrPct > 0.03) return 'HIGH_VOLATILITY';
+  
+  // Trend check using EMA20 slope
+  const ema20 = calculateEMA(closes, 20);
+  const emaRecent = ema20.slice(-5);
+  const emaSlope = (emaRecent[4] - emaRecent[0]) / (emaRecent[0] || 1);
+  
+  // If EMA slope > 0.5% over 5 days → trending
+  if (Math.abs(emaSlope) > 0.005) return 'TRENDING';
+  
+  return 'RANGING';
+}
+
+// Helper EMA calculator
+function calculateEMA(data: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  const ema: number[] = [data[0]];
+  for (let i = 1; i < data.length; i++) {
+    ema.push(data[i] * k + ema[i - 1] * (1 - k));
+  }
+  return ema;
+}
+
+function calculateRSI(closes: number[], period: number): number {
+  const rsiValues = RSI.calculate({ values: closes, period });
+  return rsiValues[rsiValues.length - 1] ?? 50;
+}
+
+function calculateMACDHistogram(closes: number[]): number {
+  const macdValues = MACD.calculate({
+    values: closes,
+    fastPeriod: 12,
+    slowPeriod: 26,
+    signalPeriod: 9,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false
+  });
+  const last = macdValues[macdValues.length - 1] as any;
+  return last?.histogram ?? 0;
+}
+
+function calculateBBPosition(closes: number[], period: number): number {
+  const bbValues = BollingerBands.calculate({ values: closes, period, stdDev: 2 });
+  const lastBB = bbValues[bbValues.length - 1] as any;
+  const lastPrice = closes[closes.length - 1];
+  if (!lastBB || (lastBB.upper - lastBB.lower) === 0) return 0.5;
+  return (lastPrice - lastBB.lower) / (lastBB.upper - lastBB.lower);
+}
+
 export interface MLFeatures {
   rsi: number;
   macd_hist: number;
@@ -1444,7 +1597,85 @@ export interface MLFeatures {
   return_5d: number;
   return_20d: number;
   atr_pct: number;
+  ema20_distance: number;
+  ema50_distance: number;
+  ema_slope: number;
   target?: number;
+}
+
+// Add these new features to feature extraction:
+function extractFeatures(prices: any[]): number[] {
+  const closes = prices.map(p => Number(p.close));
+  const volumes = prices.map(p => Number(p.volume ?? 1000));
+  
+  const current = closes[closes.length - 1];
+  
+  // Existing features
+  const rsi = calculateRSI(closes, 14);
+  const macdHist = calculateMACDHistogram(closes);
+  const bbPosition = calculateBBPosition(closes, 20);
+  const volumeRatio = volumes[volumes.length - 1] / 
+    (volumes.slice(-20).reduce((a, b) => a + b, 0) / 20 || 1);
+  const return5d = (current - (closes[closes.length - 6] ?? current)) / 
+    ((closes[closes.length - 6] ?? current) || 1);
+  const return20d = (current - (closes[closes.length - 21] ?? current)) / 
+    ((closes[closes.length - 21] ?? current) || 1);
+  
+  // NEW FEATURES
+  // EMA distances
+  const ema20 = calculateEMA(closes, 20);
+  const ema50 = calculateEMA(closes, 50);
+  const ema20Distance = (current - ema20[ema20.length - 1]) / 
+    (ema20[ema20.length - 1] || 1);
+  const ema50Distance = (current - ema50[ema50.length - 1]) / 
+    (ema50[ema50.length - 1] || 1);
+  
+  // Trend strength (ADX proxy — slope of EMA)
+  const emaSlope = (ema20[ema20.length - 1] - (ema20[ema20.length - 6] ?? ema20[0])) / 
+    ((ema20[ema20.length - 6] ?? ema20[0]) || 1);
+  
+  // Volatility regime (ATR %)
+  const atrValues = prices.slice(-14).map((p, i, arr) => {
+    if (i === 0) return Number(p.high ?? p.close) - Number(p.low ?? p.close);
+    return Math.max(
+      Number(p.high ?? p.close) - Number(p.low ?? p.close),
+      Math.abs(Number(p.high ?? p.close) - Number(arr[i-1].close)),
+      Math.abs(Number(p.low ?? p.close) - Number(arr[i-1].close))
+    );
+  });
+  const atrPct = (atrValues.reduce((a, b) => a + b, 0) / 14) / (current || 1);
+  
+  return [
+    rsi / 100,           // normalize to 0-1
+    macdHist,
+    bbPosition,
+    Math.min(volumeRatio, 5) / 5,  // cap at 5x, normalize
+    return5d,
+    return20d,
+    ema20Distance,       // NEW
+    ema50Distance,       // NEW
+    emaSlope * 100,      // NEW
+    Math.min(atrPct, 0.1) / 0.1,  // NEW — normalize
+  ];
+}
+
+function normalizeFeatures(featureMatrix: number[][]): number[][] {
+  const numFeatures = featureMatrix[0].length;
+  const normalized: number[][] = featureMatrix.map(row => [...row]);
+  
+  for (let f = 0; f < numFeatures; f++) {
+    const values = featureMatrix.map(row => row[f]);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) 
+      / values.length;
+    const std = Math.sqrt(variance) || 1; // avoid division by zero
+    
+    for (let i = 0; i < normalized.length; i++) {
+      normalized[i][f] = (normalized[i][f] - mean) / std;
+    }
+  }
+  
+  return normalized;
 }
 
 export function runIncrementalMLClassifier(prices: any[]): {
@@ -1453,12 +1684,23 @@ export function runIncrementalMLClassifier(prices: any[]): {
   accuracy: number;
   features: MLFeatures;
 } {
-  if (prices.length < 30) {
+  if (prices.length < 50) {
     return {
       probability: 0.5,
       signal: 'HOLD',
       accuracy: 60,
-      features: { rsi: 50, macd_hist: 0, bb_position: 0.5, volume_ratio: 1.0, return_5d: 0, return_20d: 0, atr_pct: 2.0 }
+      features: {
+        rsi: 50,
+        macd_hist: 0,
+        bb_position: 0.5,
+        volume_ratio: 1.0,
+        return_5d: 0,
+        return_20d: 0,
+        atr_pct: 2.0,
+        ema20_distance: 0,
+        ema50_distance: 0,
+        ema_slope: 0
+      }
     };
   }
 
@@ -1471,135 +1713,134 @@ export function runIncrementalMLClassifier(prices: any[]): {
   }));
 
   const samples: MLFeatures[] = [];
+  const rawFeatureVectors: number[][] = [];
   
-  // Extract features over the last periods to train gradient nodes
-  for (let i = 25; i < cleanCandles.length; i++) {
+  // Extract features starting at index 50 to guarantee enough candles for EMA50
+  for (let i = 50; i < cleanCandles.length; i++) {
     const slicePriceInput = cleanCandles.slice(0, i + 1);
-    let tech: any;
+    let vector: number[];
     try {
-      tech = TechnicalAgent.analyze(slicePriceInput);
+      vector = extractFeatures(slicePriceInput);
     } catch {
       continue;
     }
-
-    const lastPrice = slicePriceInput[slicePriceInput.length - 1].close;
-    const rsi = tech.rsi;
-    const macd_hist = tech.macd.histogram;
-    const bb_pos = (tech.bb.upper - tech.bb.lower) > 0 
-      ? (lastPrice - tech.bb.lower) / (tech.bb.upper - tech.bb.lower)
-      : 0.5;
-    const vol_ratio = tech.volumeRatio || 1.0;
     
-    const prev5Price = cleanCandles[i - 5]?.close || lastPrice;
-    const prev20Price = cleanCandles[i - 20]?.close || lastPrice;
+    rawFeatureVectors.push(vector);
     
-    const ret5 = (lastPrice - prev5Price) / prev5Price;
-    const ret20 = (lastPrice - prev20Price) / prev20Price;
-    const atr_p = (tech.atr / lastPrice) * 100;
-
     const sample: MLFeatures = {
-      rsi,
-      macd_hist,
-      bb_position: bb_pos,
-      volume_ratio: vol_ratio,
-      return_5d: ret5,
-      return_20d: ret20,
-      atr_pct: atr_p
+      rsi: vector[0] * 100,
+      macd_hist: vector[1],
+      bb_position: vector[2],
+      volume_ratio: vector[3] * 5,
+      return_5d: vector[4],
+      return_20d: vector[5],
+      ema20_distance: vector[6],
+      ema50_distance: vector[7],
+      ema_slope: vector[8] / 100,
+      atr_pct: vector[9] * 10,
     };
 
     if (i + 5 < cleanCandles.length) {
-      sample.target = cleanCandles[i + 5].close > lastPrice ? 1 : 0;
+      sample.target = cleanCandles[i + 5].close > cleanCandles[i].close ? 1 : 0;
     }
 
     samples.push(sample);
   }
 
-  const trainingSet = samples.filter(s => s.target !== undefined);
-  const currentSample = samples[samples.length - 1] || { rsi: 50, macd_hist: 0, bb_position: 0.5, volume_ratio: 1.0, return_5d: 0, return_20d: 0, atr_pct: 2.0 };
+  if (samples.length === 0 || rawFeatureVectors.length === 0) {
+    return {
+      probability: 0.5,
+      signal: 'HOLD',
+      accuracy: 60,
+      features: {
+        rsi: 50,
+        macd_hist: 0,
+        bb_position: 0.5,
+        volume_ratio: 1.0,
+        return_5d: 0,
+        return_20d: 0,
+        atr_pct: 2.0,
+        ema20_distance: 0,
+        ema50_distance: 0,
+        ema_slope: 0
+      }
+    };
+  }
+
+  const normalizedFeatureMatrix = normalizeFeatures(rawFeatureVectors);
+  
+  const trainingIndices: number[] = [];
+  for (let idx = 0; idx < samples.length; idx++) {
+    if (samples[idx].target !== undefined) {
+      trainingIndices.push(idx);
+    }
+  }
 
   // Fit simple live Stochastic Gradient Descent (SGD) coefficients on this specific asset series context!
-  let w_rsi = -0.05; 
-  let w_macd = 0.4;
-  let w_bb = -0.3;
-  let w_vol = 0.2;
-  let w_ret5 = 1.25;
-  let w_ret20 = 0.6;
-  let w_atr = -0.12;
+  let weights = new Array(10).fill(0);
+  weights[0] = -0.05; // rsi (negative weight for mean reversion)
+  weights[1] = 0.4;  // macd
+  weights[2] = -0.3; // bb position
+  weights[3] = 0.2;  // volume ratio
+  weights[4] = 1.25; // return 5d
+  weights[5] = 0.6;  // return 20d
+  weights[6] = 0.5;  // ema20 distance
+  weights[7] = 0.3;  // ema50 distance
+  weights[8] = 0.8;  // ema slope
+  weights[9] = -0.12;// atr pct
+  
   let bias = 0.08;
-
   const lr = 0.012;
   const epochs = 25;
 
   for (let epoch = 0; epoch < epochs; epoch++) {
-    for (const s of trainingSet) {
-      const x_rsi = (s.rsi - 50) / 15;
-      const x_macd = s.macd_hist / 2;
-      const x_bb = s.bb_position - 0.5;
-      const x_vol = s.volume_ratio - 1.0;
-      const x_ret5 = s.return_5d * 10;
-      const x_ret20 = s.return_20d * 10;
-      const x_atr = s.atr_pct - 1.8;
-
-      const linear = bias + 
-                     w_rsi * x_rsi + 
-                     w_macd * x_macd + 
-                     w_bb * x_bb + 
-                     w_vol * x_vol + 
-                     w_ret5 * x_ret5 + 
-                     w_ret20 * x_ret20 + 
-                     w_atr * x_atr;
+    for (const idx of trainingIndices) {
+      const x = normalizedFeatureMatrix[idx];
+      const target = samples[idx].target!;
+      
+      let linear = bias;
+      for (let f = 0; f < 10; f++) {
+        linear += weights[f] * x[f];
+      }
       
       const pred_prob = 1.0 / (1.0 + Math.exp(-Math.max(-8, Math.min(8, linear))));
-      const error = s.target! - pred_prob;
+      const error = target - pred_prob;
 
       bias += lr * error;
-      w_rsi += lr * error * x_rsi;
-      w_macd += lr * error * x_macd;
-      w_bb += lr * error * x_bb;
-      w_vol += lr * error * x_vol;
-      w_ret5 += lr * error * x_ret5;
-      w_ret20 += lr * error * x_ret20;
-      w_atr += lr * error * x_atr;
+      for (let f = 0; f < 10; f++) {
+        weights[f] += lr * error * x[f];
+      }
     }
   }
 
   let correctMatches = 0;
-  for (const s of trainingSet) {
-    const x_rsi = (s.rsi - 50) / 15;
-    const x_macd = s.macd_hist / 2;
-    const x_bb = s.bb_position - 0.5;
-    const x_vol = s.volume_ratio - 1.0;
-    const x_ret5 = s.return_5d * 10;
-    const x_ret20 = s.return_20d * 10;
-    const x_atr = s.atr_pct - 1.8;
-
-    const net = bias + w_rsi * x_rsi + w_macd * x_macd + w_bb * x_bb + w_vol * x_vol + w_ret5 * x_ret5 + w_ret20 * x_ret20 + w_atr * x_atr;
+  for (const idx of trainingIndices) {
+    const x = normalizedFeatureMatrix[idx];
+    const target = samples[idx].target!;
+    
+    let net = bias;
+    for (let f = 0; f < 10; f++) {
+      net += weights[f] * x[f];
+    }
+    
     const prob = 1.0 / (1.0 + Math.exp(-Math.max(-8, Math.min(8, net))));
     const pred_class = prob >= 0.5 ? 1 : 0;
-    if (pred_class === s.target) {
+    if (pred_class === target) {
       correctMatches++;
     }
   }
 
-  const rawAcc = trainingSet.length > 0 ? (correctMatches / trainingSet.length) * 100 : 59;
+  const rawAcc = trainingIndices.length > 0 ? (correctMatches / trainingIndices.length) * 100 : 59;
   const standardAcc = Math.max(55, Math.min(65, Math.round(rawAcc)));
 
-  const px_rsi = (currentSample.rsi - 50) / 15;
-  const px_macd = currentSample.macd_hist / 2;
-  const px_bb = currentSample.bb_position - 0.5;
-  const px_vol = currentSample.volume_ratio - 1.0;
-  const px_ret5 = currentSample.return_5d * 10;
-  const px_ret20 = currentSample.return_20d * 10;
-  const px_atr = currentSample.atr_pct - 1.8;
+  const currentIdx = samples.length - 1;
+  const currentSample = samples[currentIdx];
+  const px = normalizedFeatureMatrix[currentIdx];
 
-  const finalNet = bias + 
-                   w_rsi * px_rsi + 
-                   w_macd * px_macd + 
-                   w_bb * px_bb + 
-                   w_vol * px_vol + 
-                   w_ret5 * px_ret5 + 
-                   w_ret20 * px_ret20 + 
-                   w_atr * px_atr;
+  let finalNet = bias;
+  for (let f = 0; f < 10; f++) {
+    finalNet += weights[f] * px[f];
+  }
 
   const prob = 1.0 / (1.0 + Math.exp(-Math.max(-8, Math.min(8, finalNet))));
   const signal = prob >= 0.53 ? 'BUY' : (prob <= 0.47 ? 'SELL' : 'HOLD');
@@ -1716,6 +1957,7 @@ export async function getSwingScannerSetups(): Promise<any[]> {
 
 // GET /api/predict/{symbol} implementation
 export async function compilePrediction(symbol: string, forceRefresh = false): Promise<any> {
+  console.log('[compilePrediction] Running for:', symbol);
   const resolved = resolveSymbol(symbol);
   
   const cacheKey = `PRED_${resolved.toUpperCase().trim()}`;
@@ -1754,7 +1996,8 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
   ]);
 
   const macro = await compileMacroReport();
-  const prices = await getPricesHistory(resolved, 100);
+  const prices = await getPricesHistory(resolved, 252);
+  console.log('[compilePrediction] Got', prices.length, 'prices for', resolved);
   const lastPrice = prices[prices.length - 1]?.close || 1500;
 
   let technicals: any;
@@ -2174,15 +2417,39 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
     console.warn("[compilePrediction] Dynamic news intelligence attach error:", err.message);
   }
 
-  // Automatically log compiled prediction to accuracy matrix schema
   try {
-    const agentSignals = {
-      technical: techSignal,
-      macro: macroSignal,
-      ml: mlSignal || 'HOLD',
-      sentiment: sentimentSigMapped || 'HOLD'
-    };
-    logPrediction(resolved, final_signal, confidence, entry_price, agentSignals);
+    const marketRegime = detectMarketRegime(prices);
+
+    let smcSignalForLog: string | null = null;
+    if (smcAnalysis?.smcSignal) {
+      const s = smcAnalysis.smcSignal.toUpperCase();
+      if (s.includes('BUY')) {
+        smcSignalForLog = 'BULLISH';
+      } else if (s.includes('SELL')) {
+        smcSignalForLog = 'BEARISH';
+      } else {
+        smcSignalForLog = 'NEUTRAL';
+      }
+    }
+    const smcConfidenceForLog = smcAnalysis?.smcConfidence || null;
+    const smcReasonForLog = smcAnalysis?.structure?.currentTrend || smcAnalysis?.structure?.trend || null;
+
+    logPrediction({
+      symbol: resolved,
+      signal: final_signal,
+      confidence: confidence,
+      entryPrice: entry_price,
+      agentSignals: {
+        technical: techSignal,
+        sentiment: sentimentSigMapped,
+        macro: macroSignal,
+        ml: mlSignal || 'HOLD',
+        smc: smcSignalForLog,
+        smcConfidence: smcConfidenceForLog,
+        smcReason: smcReasonForLog,
+      },
+      marketRegime: marketRegime
+    });
   } catch (logErr: any) {
     console.warn("[compilePrediction] logPrediction issue:", logErr.message);
   }
@@ -2615,16 +2882,18 @@ export async function runHistoricalBacktest(symbol: string): Promise<any> {
     (symbol, signal, confidence, entry_price, 
      signal_date, verification_date, actual_price, 
      was_correct, pnl_percent, 
-     technical_signal, macro_signal, ml_signal, sentiment_signal)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     technical_signal, macro_signal, ml_signal, sentiment_signal,
+     smc_signal, smc_confidence, smc_reason, market_regime,
+     outcome, verified_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   let runCount = 0;
   let correctCount = 0;
 
   const length = sortedPrices.length;
-  // Start from day 35 to give indicators enough startup bars, and stop 5 days before the end so we can verify the outcome
-  const testStartIndex = Math.max(35, length - 257);
+  // Start from day 50 to give indicators enough startup bars (especially EMA50), and stop 5 days before the end so we can verify the outcome
+  const testStartIndex = Math.max(50, length - 257);
   const testEndIndex = length - 6; 
 
   for (let t = testStartIndex; t <= testEndIndex; t++) {
@@ -2668,6 +2937,45 @@ export async function runHistoricalBacktest(symbol: string): Promise<any> {
 
       const confidence = Math.min(95, Math.round(Math.abs(score) * 100 + 50));
 
+      // Compute SMC signal historically
+      let smcSignalForLog: string | null = null;
+      let smcConfidenceForLog: number | null = null;
+      let smcReasonForLog: string | null = null;
+      
+      try {
+        const { analyzeSMC } = await import('./smcAnalysis');
+        const standardCandles = historicalSlice.map((p: any) => ({
+          time: p.time,
+          open: p.open,
+          high: p.high,
+          low: p.low,
+          close: p.close,
+          volume: p.volume ?? 100000
+        }));
+
+        if (standardCandles.length >= 50) {
+          const smcAnalysis = analyzeSMC(standardCandles);
+          const smcSig = smcAnalysis.smcSignal;
+          const s = smcSig.toUpperCase();
+          if (s.includes('BUY')) {
+            smcSignalForLog = 'BULLISH';
+          } else if (s.includes('SELL')) {
+            smcSignalForLog = 'BEARISH';
+          } else {
+            smcSignalForLog = 'NEUTRAL';
+          }
+          smcConfidenceForLog = smcAnalysis.smcConfidence ?? 50;
+          smcReasonForLog = smcAnalysis.structure?.currentTrend || null;
+        }
+      } catch (smcErr) {
+        // Safe fallback
+      }
+
+      // Compute market regime historically
+      const marketRegime = detectMarketRegime(historicalSlice);
+      const outcome = actual_price > entry_price ? 'WIN' : 'LOSS_AVOIDED';
+      const verified_at = new Date().toISOString();
+
       insertAccStmt.run(
         resolved,
         signal,
@@ -2681,7 +2989,13 @@ export async function runHistoricalBacktest(symbol: string): Promise<any> {
         techSignal,
         macroSignal,
         mlSignal,
-        sentimentSignal
+        sentimentSignal,
+        smcSignalForLog,
+        smcConfidenceForLog,
+        smcReasonForLog,
+        marketRegime,
+        outcome,
+        verified_at
       );
 
       if (signal !== 'HOLD') {

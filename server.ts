@@ -696,8 +696,10 @@ async function startServer() {
 
   app.get('/api/predict/:symbol', checkAuth, async (req, res) => {
     try {
+      const symbol = req.params.symbol;
+      console.log('[Predict] Request for symbol:', symbol);
       const forceRefresh = req.query.refresh === 'true';
-      const prediction = await compilePrediction(req.params.symbol, forceRefresh);
+      const prediction = await compilePrediction(symbol, forceRefresh);
       res.json(prediction);
     } catch (error: any) {
       console.error(`Error in /api/predict/${req.params.symbol}:`, error);

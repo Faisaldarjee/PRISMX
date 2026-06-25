@@ -7,6 +7,7 @@ import {
 import { AccuracyData } from '../types';
 import AdUnit from '../components/AdUnit';
 import { useProStatus } from '../hooks/useProStatus';
+import ProGate from '../components/ProGate';
 import { supabase } from '../services/supabase';
 import { 
   AreaChart, 
@@ -255,93 +256,95 @@ export function Accuracy() {
       </div>
 
       {/* SECTION 2: QUANTITATIVE CALIBRATOR ENGINE PANEL */}
-      <section className="glass-card p-6" id="backtest-calibrater">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-[rgba(255,255,255,0.04)]">
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-display font-semibold text-white flex items-center gap-1.5 uppercase">
-              <Cpu size={16} className="text-[#D4A843]" />
-              Quantitative Calibrations Simulator
-            </h3>
-            <p className="text-[11px] text-[#8892A4] font-body">
-              Iterate active Technical, ML Stack, and Sentiment agents across 252 historical trading days to generate predictive validation logs.
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <select
-              value={backtestSymbol}
-              onChange={(e) => setBacktestSymbol(e.target.value)}
-              disabled={backtesting}
-              className="bg-[#05070C] border border-white/[0.06] rounded-lg p-2 font-data text-xs text-[#E8C070] focus:outline-none focus:border-[#D4A843]/60 transition-all uppercase cursor-pointer"
-            >
-              {DEFAULT_SYMBOLS_FOR_BACKTEST.map((asset) => (
-                <option key={asset} value={asset}>
-                  {asset.split('.')[0]}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleBacktest}
-              disabled={backtesting}
-              className="px-4 py-2 bg-[#D4A843] hover:bg-[#E8C070] text-[#05070C] text-xs font-data font-bold rounded-lg uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-lg shadow-[#D4A843]/15"
-            >
-              <Play size={11} fill="currentColor" />
-              {backtesting ? 'SIMULATING...' : 'RUN_TEST'}
-            </button>
-          </div>
-        </div>
-
-        {backtesting && (
-          <div className="rounded-lg bg-white/[0.012] border border-white/[0.04] p-4 text-[11px] font-mono text-[#8892A4] space-y-1.5 animate-pulse">
-            <div className="flex items-center gap-1.5 text-[#34A77A] font-bold">
-              <RefreshCw size={12} className="animate-spin" /> Processing Backtest
-            </div>
-            <p className="leading-relaxed text-zinc-400">
-              Fetching historical closing rates and calculating accuracy...
-            </p>
-          </div>
-        )}
-
-        {backtestError && (
-          <div className="rounded-lg bg-[#E05252]/10 border border-[#E05252]/20 p-4 text-[11px] font-data text-[#E05252] flex items-center gap-2">
-            <AlertCircle size={14} />
-            {backtestError}
-          </div>
-        )}
-
-        {backtestResult && (
-          <div className="rounded-lg bg-[#34A77A]/5 border border-[#34A77A]/25 p-5 space-y-3.5 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[#34A77A] font-data text-xs font-bold uppercase tracking-wider">
-                <Sparkles size={14} className="animate-bounce text-[#D4A843]" />
-                Backtest Completed // {backtestResult.symbol.split('.')[0]}
-              </div>
-              {backtestResult.accuracy !== null && backtestResult.accuracy < 60 && (
-                <span className="text-[10px] text-[#E05252] font-mono border border-[#E05252]/30 px-2.5 py-0.5 rounded uppercase font-medium">
-                  ⚠️ Low Accuracy
-                </span>
-              )}
+      <ProGate feature="Accuracy Matrix" isPro={isPro}>
+        <section className="glass-card p-6" id="backtest-calibrater">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-[rgba(255,255,255,0.04)]">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-display font-semibold text-white flex items-center gap-1.5 uppercase">
+                <Cpu size={16} className="text-[#D4A843]" />
+                Quantitative Calibrations Simulator
+              </h3>
+              <p className="text-[11px] text-[#8892A4] font-body">
+                Iterate active Technical, ML Stack, and Sentiment agents across 252 historical trading days to generate predictive validation logs.
+              </p>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-data">
-              <div className="bg-[#05070C] p-3 rounded-lg border border-white/[0.02]">
-                <span className="text-[8.5px] text-[#4A5568] uppercase block">Interval Tested</span>
-                <span className="text-sm font-bold text-[#F0F4FF] mt-1 block font-mono">{backtestResult.tested_days} bars</span>
-              </div>
-              <div className="bg-[#05070C] p-3 rounded-lg border border-white/[0.02]">
-                <span className="text-[8.5px] text-[#4A5568] uppercase block">Accurate Predictions</span>
-                <span className="text-sm font-bold text-[#34A77A] mt-1 block font-mono">{backtestResult.correct_predictions} Days</span>
-              </div>
-              <div className="bg-[#05070C] p-3 rounded-lg border border-[#34A77A]/10 bg-gradient-to-r from-[#34A77A]/5 to-transparent">
-                <span className="text-[8.5px] text-[#34A77A]/70 uppercase block font-bold">Calibrated Accuracy Hits</span>
-                <span className="text-sm font-black text-[#34A77A] mt-1 block font-mono">
-                  {backtestResult.accuracy !== null ? `${backtestResult.accuracy}%` : 'N/A (No trade signals)'}
-                </span>
-              </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={backtestSymbol}
+                onChange={(e) => setBacktestSymbol(e.target.value)}
+                disabled={backtesting}
+                className="bg-[#05070C] border border-white/[0.06] rounded-lg p-2 font-data text-xs text-[#E8C070] focus:outline-none focus:border-[#D4A843]/60 transition-all uppercase cursor-pointer"
+              >
+                {DEFAULT_SYMBOLS_FOR_BACKTEST.map((asset) => (
+                  <option key={asset} value={asset}>
+                    {asset.split('.')[0]}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleBacktest}
+                disabled={backtesting}
+                className="px-4 py-2 bg-[#D4A843] hover:bg-[#E8C070] text-[#05070C] text-xs font-data font-bold rounded-lg uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-lg shadow-[#D4A843]/15"
+              >
+                <Play size={11} fill="currentColor" />
+                {backtesting ? 'SIMULATING...' : 'RUN_TEST'}
+              </button>
             </div>
           </div>
-        )}
-      </section>
+
+          {backtesting && (
+            <div className="rounded-lg bg-white/[0.012] border border-white/[0.04] p-4 text-[11px] font-mono text-[#8892A4] space-y-1.5 animate-pulse">
+              <div className="flex items-center gap-1.5 text-[#34A77A] font-bold">
+                <RefreshCw size={12} className="animate-spin" /> Processing Backtest
+              </div>
+              <p className="leading-relaxed text-zinc-400">
+                Fetching historical closing rates and calculating accuracy...
+              </p>
+            </div>
+          )}
+
+          {backtestError && (
+            <div className="rounded-lg bg-[#E05252]/10 border border-[#E05252]/20 p-4 text-[11px] font-data text-[#E05252] flex items-center gap-2">
+              <AlertCircle size={14} />
+              {backtestError}
+            </div>
+          )}
+
+          {backtestResult && (
+            <div className="rounded-lg bg-[#34A77A]/5 border border-[#34A77A]/25 p-5 space-y-3.5 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[#34A77A] font-data text-xs font-bold uppercase tracking-wider">
+                  <Sparkles size={14} className="animate-bounce text-[#D4A843]" />
+                  Backtest Completed // {backtestResult.symbol.split('.')[0]}
+                </div>
+                {backtestResult.accuracy !== null && backtestResult.accuracy < 60 && (
+                  <span className="text-[10px] text-[#E05252] font-mono border border-[#E05252]/30 px-2.5 py-0.5 rounded uppercase font-medium">
+                    ⚠️ Low Accuracy
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-data">
+                <div className="bg-[#05070C] p-3 rounded-lg border border-white/[0.02]">
+                  <span className="text-[8.5px] text-[#4A5568] uppercase block">Interval Tested</span>
+                  <span className="text-sm font-bold text-[#F0F4FF] mt-1 block font-mono">{backtestResult.tested_days} bars</span>
+                </div>
+                <div className="bg-[#05070C] p-3 rounded-lg border border-white/[0.02]">
+                  <span className="text-[8.5px] text-[#4A5568] uppercase block">Accurate Predictions</span>
+                  <span className="text-sm font-bold text-[#34A77A] mt-1 block font-mono">{backtestResult.correct_predictions} Days</span>
+                </div>
+                <div className="bg-[#05070C] p-3 rounded-lg border border-[#34A77A]/10 bg-gradient-to-r from-[#34A77A]/5 to-transparent">
+                  <span className="text-[8.5px] text-[#34A77A]/70 uppercase block font-bold">Calibrated Accuracy Hits</span>
+                  <span className="text-sm font-black text-[#34A77A] mt-1 block font-mono">
+                    {backtestResult.accuracy !== null ? `${backtestResult.accuracy}%` : 'N/A (No trade signals)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </ProGate>
 
       {isBuilding ? (
         <div id="accuracy-building-state" className="rounded-xl border border-dashed border-[#D4A843]/30 bg-[#D4A843]/5 p-8 text-center space-y-4 max-w-2xl mx-auto">
@@ -548,52 +551,54 @@ export function Accuracy() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* SECTION 5: CONFUSION MATRIX */}
-            <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="confusion-matrix-card">
-              <div className="mb-4">
-                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5 uppercase">
-                  <Percent size={15} className="text-zinc-400" />
-                  Predictive Confusion Matrix
-                </h4>
-                <p className="text-[10px] text-[#8892A4] mt-0.5">True positive vs false alarm accuracy verification classification grid</p>
-              </div>
+            <ProGate feature="Accuracy Matrix" isPro={isPro}>
+              <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="confusion-matrix-card">
+                <div className="mb-4">
+                  <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5 uppercase">
+                    <Percent size={15} className="text-zinc-400" />
+                    Predictive Confusion Matrix
+                  </h4>
+                  <p className="text-[10px] text-[#8892A4] mt-0.5">True positive vs false alarm accuracy verification classification grid</p>
+                </div>
 
-              {/* 2x2 Matrix Grid */}
-              <div className="grid grid-cols-2 gap-3.5 font-data text-center flex-1 py-2">
+                {/* 2x2 Matrix Grid */}
+                <div className="grid grid-cols-2 gap-3.5 font-data text-center flex-1 py-2">
+                  
+                  {/* True Positive */}
+                  <div className="p-4 rounded-xl border border-[#34A77A]/20 bg-[#34A77A]/6 flex flex-col justify-center gap-1">
+                    <span className="text-[8.5px] text-[#34A77A]/70 font-semibold uppercase tracking-wider leading-none">True Positive (TP)</span>
+                    <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.tp ?? 0}</span>
+                    <p className="text-[9px] text-[#8892A4]">Correct BUY setups</p>
+                  </div>
+
+                  {/* False Positive */}
+                  <div className="p-4 rounded-xl border border-[#E05252]/15 bg-[#E05252]/4 flex flex-col justify-center gap-1">
+                    <span className="text-[8.5px] text-[#E05252]/70 font-semibold uppercase tracking-wider leading-none">False Positive (FP)</span>
+                    <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.fp ?? 0}</span>
+                    <p className="text-[9px] text-[#8892A4]">Failed BUY predictions</p>
+                  </div>
+
+                  {/* False Negative */}
+                  <div className="p-4 rounded-xl border border-[#E05252]/15 bg-[#E05252]/4 flex flex-col justify-center gap-1">
+                    <span className="text-[8.5px] text-[#E05252]/70 font-semibold uppercase tracking-wider leading-none">False Negative (FN)</span>
+                    <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.fn ?? 0}</span>
+                    <p className="text-[9px] text-[#8892A4]">Failed SELL predictions</p>
+                  </div>
+
+                  {/* True Negative */}
+                  <div className="p-4 rounded-xl border border-[#34A77A]/20 bg-[#34A77A]/6 flex flex-col justify-center gap-1">
+                    <span className="text-[8.5px] text-[#34A77A]/70 font-semibold uppercase tracking-wider leading-none">True Negative (TN)</span>
+                    <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.tn ?? 0}</span>
+                    <p className="text-[9px] text-[#8892A4]">Correct SELL setups</p>
+                  </div>
+
+                </div>
                 
-                {/* True Positive */}
-                <div className="p-4 rounded-xl border border-[#34A77A]/20 bg-[#34A77A]/6 flex flex-col justify-center gap-1">
-                  <span className="text-[8.5px] text-[#34A77A]/70 font-semibold uppercase tracking-wider leading-none">True Positive (TP)</span>
-                  <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.tp ?? 0}</span>
-                  <p className="text-[9px] text-[#8892A4]">Correct BUY setups</p>
+                <div className="text-[9.5px] text-[#4A5568] leading-tight mt-3 font-sans italic text-center">
+                  * Positive values label BUY alerts, negative values indicate SELL or distribution alerts.
                 </div>
-
-                {/* False Positive */}
-                <div className="p-4 rounded-xl border border-[#E05252]/15 bg-[#E05252]/4 flex flex-col justify-center gap-1">
-                  <span className="text-[8.5px] text-[#E05252]/70 font-semibold uppercase tracking-wider leading-none">False Positive (FP)</span>
-                  <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.fp ?? 0}</span>
-                  <p className="text-[9px] text-[#8892A4]">Failed BUY predictions</p>
-                </div>
-
-                {/* False Negative */}
-                <div className="p-4 rounded-xl border border-[#E05252]/15 bg-[#E05252]/4 flex flex-col justify-center gap-1">
-                  <span className="text-[8.5px] text-[#E05252]/70 font-semibold uppercase tracking-wider leading-none">False Negative (FN)</span>
-                  <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.fn ?? 0}</span>
-                  <p className="text-[9px] text-[#8892A4]">Failed SELL predictions</p>
-                </div>
-
-                {/* True Negative */}
-                <div className="p-4 rounded-xl border border-[#34A77A]/20 bg-[#34A77A]/6 flex flex-col justify-center gap-1">
-                  <span className="text-[8.5px] text-[#34A77A]/70 font-semibold uppercase tracking-wider leading-none">True Negative (TN)</span>
-                  <span className="text-xl font-bold font-mono text-white mt-1">{advanced?.confusionMatrix?.tn ?? 0}</span>
-                  <p className="text-[9px] text-[#8892A4]">Correct SELL setups</p>
-                </div>
-
               </div>
-              
-              <div className="text-[9.5px] text-[#4A5568] leading-tight mt-3 font-sans italic text-center">
-                * Positive values label BUY alerts, negative values indicate SELL or distribution alerts.
-              </div>
-            </div>
+            </ProGate>
 
             {/* SECTION 6: WIN RATE BY SIGNAL TYPE */}
             <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="win-rates-by-signal-card">
@@ -656,114 +661,118 @@ export function Accuracy() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* SECTION 7: ROLLING ACCURACY TREND */}
-            <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="rolling-accuracy-card">
-              <div className="mb-4">
-                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5">
-                  <LineIcon className="text-[#D4A843]" size={15} />
-                  Rolling Signal Block Accuracy Trend
-                </h4>
-                <p className="text-[10px] text-[#8892A4] mt-0.5">Chronological trade chunk target validation hits against baseline random walk probability</p>
-              </div>
+            <ProGate feature="Accuracy Matrix" isPro={isPro}>
+              <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="rolling-accuracy-card">
+                <div className="mb-4">
+                  <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5">
+                    <LineIcon className="text-[#D4A843]" size={15} />
+                    Rolling Signal Block Accuracy Trend
+                  </h4>
+                  <p className="text-[10px] text-[#8892A4] mt-0.5">Chronological trade chunk target validation hits against baseline random walk probability</p>
+                </div>
 
-              <div className="h-[210px] w-full">
-                {advanced?.rollingAccuracy && advanced.rollingAccuracy.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={advanced.rollingAccuracy} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
-                      <XAxis 
-                        dataKey="period" 
-                        tickLine={false} 
-                        axisLine={false} 
-                        stroke="#4A5568" 
-                        fontSize={9.5} 
-                        fontFamily="monospace"
-                      />
-                      <YAxis 
-                        domain={[0, 100]} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        stroke="#4A5568" 
-                        fontSize={9.5} 
-                        tickFormatter={(v) => `${v}%`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#07090F',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontFamily: 'monospace',
-                          color: '#F0F4FF'
-                        }}
-                        formatter={(v: any) => [`${v}%`, 'Accuracy']}
-                      />
-                      <ReferenceLine y={50} stroke="#E05252" strokeDasharray="3 3" label={{ value: "Random Baseline", fill: "#E05252", fontSize: 8, position: 'top' }} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="accuracy" 
-                        stroke="#D4A843" 
-                        strokeWidth={2} 
-                        dot={{ r: 4, fill: '#0B0F1A', strokeWidth: 2, stroke: '#D4A843' }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center font-data text-xs text-[#8892A4] uppercase">
-                    Generating rolling regression blocks...
-                  </div>
-                )}
+                <div className="h-[210px] w-full">
+                  {advanced?.rollingAccuracy && advanced.rollingAccuracy.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={advanced.rollingAccuracy} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
+                        <XAxis 
+                          dataKey="period" 
+                          tickLine={false} 
+                          axisLine={false} 
+                          stroke="#4A5568" 
+                          fontSize={9.5} 
+                          fontFamily="monospace"
+                        />
+                        <YAxis 
+                          domain={[0, 100]} 
+                          tickLine={false} 
+                          axisLine={false} 
+                          stroke="#4A5568" 
+                          fontSize={9.5} 
+                          tickFormatter={(v) => `${v}%`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#07090F',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontFamily: 'monospace',
+                            color: '#F0F4FF'
+                          }}
+                          formatter={(v: any) => [`${v}%`, 'Accuracy']}
+                        />
+                        <ReferenceLine y={50} stroke="#E05252" strokeDasharray="3 3" label={{ value: "Random Baseline", fill: "#E05252", fontSize: 8, position: 'top' }} />
+                        <Line 
+                          type="monotone" 
+                          dataKey="accuracy" 
+                          stroke="#D4A843" 
+                          strokeWidth={2} 
+                          dot={{ r: 4, fill: '#0B0F1A', strokeWidth: 2, stroke: '#D4A843' }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center font-data text-xs text-[#8892A4] uppercase">
+                      Generating rolling regression blocks...
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </ProGate>
 
             {/* SECTION 8: MONTHLY P&L HEATMAP */}
-            <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="monthly-heatmap-card">
-              <div className="mb-4">
-                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5 uppercase">
-                  <Activity size={15} className="text-zinc-400" />
-                  Monthly Cumulative return Matrix
-                </h4>
-                <p className="text-[10px] text-[#8892A4] mt-0.5">Sum of verified signal alpha return percent performance calendar grid</p>
-              </div>
+            <ProGate feature="Accuracy Matrix" isPro={isPro}>
+              <div className="glass-card p-5 shadow-lg flex flex-col justify-between" id="monthly-heatmap-card">
+                <div className="mb-4">
+                  <h4 className="font-display font-semibold text-sm text-[#F0F4FF] flex items-center gap-1.5 uppercase">
+                    <Activity size={15} className="text-zinc-400" />
+                    Monthly Cumulative return Matrix
+                  </h4>
+                  <p className="text-[10px] text-[#8892A4] mt-0.5">Sum of verified signal alpha return percent performance calendar grid</p>
+                </div>
 
-              {/* Monthly returns grid layout */}
-              <div className="flex-1 flex flex-col justify-center py-2" id="heatmap-interactive-stage">
-                {monthlyHeatmap.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 font-data text-center">
-                    {monthlyHeatmap.map((cell) => {
-                      let bg = 'bg-[#181F35] border-white/[0.03] text-[#8892A4]';
-                      if (cell.value > 15) {
-                        bg = 'bg-emerald-950/70 border-emerald-500/40 text-emerald-400 font-bold';
-                      } else if (cell.value > 5) {
-                        bg = 'bg-emerald-950/40 border-emerald-500/20 text-emerald-300';
-                      } else if (cell.value > 0) {
-                        bg = 'bg-emerald-950/20 border-emerald-500/10 text-emerald-100';
-                      } else if (cell.value < -15) {
-                        bg = 'bg-rose-950/70 border-rose-500/40 text-rose-455 font-bold';
-                      } else if (cell.value < -5) {
-                        bg = 'bg-rose-950/40 border-rose-500/20 text-rose-350';
-                      } else if (cell.value < 0) {
-                        bg = 'bg-rose-950/20 border-rose-500/10 text-rose-200';
-                      }
+                {/* Monthly returns grid layout */}
+                <div className="flex-1 flex flex-col justify-center py-2" id="heatmap-interactive-stage">
+                  {monthlyHeatmap.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 font-data text-center">
+                      {monthlyHeatmap.map((cell) => {
+                        let bg = 'bg-[#181F35] border-white/[0.03] text-[#8892A4]';
+                        if (cell.value > 15) {
+                          bg = 'bg-emerald-950/70 border-emerald-500/40 text-emerald-400 font-bold';
+                        } else if (cell.value > 5) {
+                          bg = 'bg-emerald-950/40 border-emerald-500/20 text-emerald-300';
+                        } else if (cell.value > 0) {
+                          bg = 'bg-emerald-950/20 border-emerald-500/10 text-emerald-100';
+                        } else if (cell.value < -15) {
+                          bg = 'bg-rose-950/70 border-rose-500/40 text-rose-455 font-bold';
+                        } else if (cell.value < -5) {
+                          bg = 'bg-rose-950/40 border-rose-500/20 text-rose-350';
+                        } else if (cell.value < 0) {
+                          bg = 'bg-rose-950/20 border-rose-500/10 text-rose-200';
+                        }
 
-                      return (
-                        <div 
-                          key={cell.key} 
-                          className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 heatmap-cell ${bg}`}
-                        >
-                          <span className="text-[10px] uppercase font-bold tracking-wider">{cell.label}</span>
-                          <span className="text-[13px] font-mono leading-none">{cell.value > 0 ? `+${cell.value}` : cell.value}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="h-40 flex items-center justify-center font-data text-xs text-[#8892A4] uppercase tracking-wider border border-dashed border-white/[0.04] rounded-xl bg-white/[0.01]">
-                    No historical indices stored yet. Run backtest above.
-                  </div>
-                )}
+                        return (
+                          <div 
+                            key={cell.key} 
+                            className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1 heatmap-cell ${bg}`}
+                          >
+                            <span className="text-[10px] uppercase font-bold tracking-wider">{cell.label}</span>
+                            <span className="text-[13px] font-mono leading-none">{cell.value > 0 ? `+${cell.value}` : cell.value}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="h-40 flex items-center justify-center font-data text-xs text-[#8892A4] uppercase tracking-wider border border-dashed border-white/[0.04] rounded-xl bg-white/[0.01]">
+                      No historical indices stored yet. Run backtest above.
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </ProGate>
 
           </div>
 
@@ -876,61 +885,63 @@ export function Accuracy() {
           </div>
 
           {/* SECTION 11: OUTCOMES JOURNAL TABLE */}
-          <section className="glass-card p-5" id="outcomes-journal-section">
-            <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.04)] pb-3.5 mb-4 font-sans">
-              <History size={14} className="text-[#E8C070]" />
-              <h3 className="font-display font-medium text-sm text-[#F0F4FF]">Ensemble Signals &amp; Outcomes Journal (Verified Historicals)</h3>
-            </div>
+          <ProGate feature="Accuracy Matrix" isPro={isPro}>
+            <section className="glass-card p-5" id="outcomes-journal-section">
+              <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.04)] pb-3.5 mb-4 font-sans">
+                <History size={14} className="text-[#E8C070]" />
+                <h3 className="font-display font-medium text-sm text-[#F0F4FF]">Ensemble Signals &amp; Outcomes Journal (Verified Historicals)</h3>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs font-data">
-                <thead>
-                  <tr className="border-b border-white/[0.03] text-[#4A5568] text-[9.5px] uppercase tracking-wider">
-                    <th className="py-2.5 px-3">RECORD ID</th>
-                    <th className="py-2.5 px-3">DATE</th>
-                    <th className="py-2.5 px-3">ASSET</th>
-                    <th className="py-2.5 px-3">SIGNAL</th>
-                    <th className="py-2.5 px-3">ENTRY PRICE</th>
-                    <th className="py-2.5 px-3">Validation Status</th>
-                    <th className="py-2.5 px-3 text-right font-mono">Outcome Gain/Loss</th>
-                    <th className="py-2.5 px-3 text-right text-amber-500 font-mono">Cumulative P&amp;L</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.02]">
-                  {executionLedger.map((row: any) => (
-                    <tr key={row.id} className="hover:bg-white/[0.01] transition-colors data-row">
-                      <td className="py-3 px-3 font-mono text-[#8892A4]">{row.id}</td>
-                      <td className="py-3 px-3 text-zinc-400 font-mono text-[11px]">{row.date}</td>
-                      <td className="py-3 px-3 font-bold text-white font-display uppercase">{row.symbol}</td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
-                          row.action === 'BUY' 
-                            ? 'bg-[#34A77A]/15 text-[#34A77A] border border-[#34A77A]/25' 
-                            : row.action === 'SELL' 
-                              ? 'bg-[#E05252]/15 text-[#E05252] border border-[#E05252]/25' 
-                              : 'bg-white/[0.03] text-slate-350 border border-white/[0.06]'
-                        }`}>
-                          {row.action}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[#8892A4]">{row.price}</td>
-                      <td className="py-3 px-3">
-                        <span className={`font-bold uppercase tracking-wider text-[10px] ${row.outcome === 'CORRECT' ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
-                          {row.outcome}
-                        </span>
-                      </td>
-                      <td className={`py-3 px-3 font-mono text-right font-semibold ${row.gain?.startsWith('+') ? 'text-[#34A77A]' : (row.gain === '0.0%' ? 'text-[#4A5568]' : 'text-[#E05252]')}`}>
-                        {row.gain}
-                      </td>
-                      <td className={`py-3 px-3 font-mono text-right font-bold ${row.cumulative >= 0 ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
-                        {row.cumulative > 0 ? `+${row.cumulative}%` : `${row.cumulative}%`}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs font-data">
+                  <thead>
+                    <tr className="border-b border-white/[0.03] text-[#4A5568] text-[9.5px] uppercase tracking-wider">
+                      <th className="py-2.5 px-3">RECORD ID</th>
+                      <th className="py-2.5 px-3">DATE</th>
+                      <th className="py-2.5 px-3">ASSET</th>
+                      <th className="py-2.5 px-3">SIGNAL</th>
+                      <th className="py-2.5 px-3">ENTRY PRICE</th>
+                      <th className="py-2.5 px-3">Validation Status</th>
+                      <th className="py-2.5 px-3 text-right font-mono">Outcome Gain/Loss</th>
+                      <th className="py-2.5 px-3 text-right text-amber-500 font-mono">Cumulative P&amp;L</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.02]">
+                    {executionLedger.map((row: any) => (
+                      <tr key={row.id} className="hover:bg-white/[0.01] transition-colors data-row">
+                        <td className="py-3 px-3 font-mono text-[#8892A4]">{row.id}</td>
+                        <td className="py-3 px-3 text-zinc-400 font-mono text-[11px]">{row.date}</td>
+                        <td className="py-3 px-3 font-bold text-white font-display uppercase">{row.symbol}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded font-bold text-[9px] ${
+                            row.action === 'BUY' 
+                              ? 'bg-[#34A77A]/15 text-[#34A77A] border border-[#34A77A]/25' 
+                              : row.action === 'SELL' 
+                                ? 'bg-[#E05252]/15 text-[#E05252] border border-[#E05252]/25' 
+                                : 'bg-white/[0.03] text-slate-350 border border-white/[0.06]'
+                          }`}>
+                            {row.action}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[#8892A4]">{row.price}</td>
+                        <td className="py-3 px-3">
+                          <span className={`font-bold uppercase tracking-wider text-[10px] ${row.outcome === 'CORRECT' ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
+                            {row.outcome}
+                          </span>
+                        </td>
+                        <td className={`py-3 px-3 font-mono text-right font-semibold ${row.gain?.startsWith('+') ? 'text-[#34A77A]' : (row.gain === '0.0%' ? 'text-[#4A5568]' : 'text-[#E05252]')}`}>
+                          {row.gain}
+                        </td>
+                        <td className={`py-3 px-3 font-mono text-right font-bold ${row.cumulative >= 0 ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
+                          {row.cumulative > 0 ? `+${row.cumulative}%` : `${row.cumulative}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </ProGate>
 
         </div>
       )}

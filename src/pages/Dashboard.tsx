@@ -12,6 +12,7 @@ import { ConfidenceBar } from '../components/ConfidenceBar';
 import { useAuth } from '../services/AuthProvider';
 import AdUnit from '../components/AdUnit';
 import { useProStatus } from '../hooks/useProStatus';
+import ProGate from '../components/ProGate';
 import { 
   TrendingUp, 
   RefreshCw, 
@@ -724,6 +725,22 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {user && morningBriefing && (
+        <ProGate feature="AI Morning Briefing" isPro={isPro}>
+          <div className="glass-card p-5 border border-white/[0.04] 
+                          bg-white/[0.01] rounded-xl mt-4">
+            <h3 className="font-display font-semibold text-sm 
+                           text-[#F0F4FF] flex items-center gap-1.5 mb-3">
+              <Sparkles className="text-amber-500" size={15} />
+              Morning Briefing
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed font-body">
+              {morningBriefing.briefing}
+            </p>
+          </div>
+        </ProGate>
+      )}
 
       {!isPro && (
         <div className="mt-4 mb-2">

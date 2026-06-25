@@ -7,6 +7,7 @@ import {
 import { SipData, HistoryBar, Asset, Prediction } from '../types';
 import AdUnit from '../components/AdUnit';
 import { useProStatus } from '../hooks/useProStatus';
+import ProGate from '../components/ProGate';
 import { 
   LineChart, 
   Line, 
@@ -708,142 +709,144 @@ export function SipTracker() {
         Section 2: Smart Allocation & Historical Compounding check
       </h3>
 
-      <div id="sip-intelligence-grid" className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        
-        {/* column 1: Smart deployment calculator */}
-        <div id="deployment-calculator" className="xl:col-span-4 bg-black/40 border border-[#D4A843]/10 p-5 rounded-xl flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="border-b border-white/[0.04] pb-2.5">
-              <span className="text-[9px] font-mono text-[#D4A843] uppercase tracking-widest block font-bold">SMART TRANCHE MODIFIER</span>
-              <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Dynamic Budget Allotment</h4>
-            </div>
-
-            <div className="space-y-3.5 font-mono text-xs">
-              <div>
-                <label className="text-[9.5px] text-[#8892A4] uppercase tracking-wider block mb-1">Target Monthly Installment (INR)</label>
-                <input 
-                  id="monthly-budget-input"
-                  type="number" 
-                  value={monthlyBudget} 
-                  onChange={(e) => setMonthlyBudget(Number(e.target.value))}
-                  className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
-                />
+      <ProGate feature="SIP Hub Advanced Features" isPro={isPro}>
+        <div id="sip-intelligence-grid" className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          
+          {/* column 1: Smart deployment calculator */}
+          <div id="deployment-calculator" className="xl:col-span-4 bg-black/40 border border-[#D4A843]/10 p-5 rounded-xl flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="border-b border-white/[0.04] pb-2.5">
+                <span className="text-[9px] font-mono text-[#D4A843] uppercase tracking-widest block font-bold">SMART TRANCHE MODIFIER</span>
+                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Dynamic Budget Allotment</h4>
               </div>
 
-              {/* Preset buttons */}
-              <div id="preset-amounts-row" className="flex gap-1.5 pt-1">
-                {[3000, 5000, 10000, 25000].map(amt => (
-                  <button
-                    id={`preset-${amt}`}
-                    key={amt}
-                    onClick={() => setMonthlyBudget(amt)}
-                    className={`flex-1 py-1.5 bg-white/[0.01] hover:bg-white/[0.04] border rounded text-[9.5px] font-mono ${monthlyBudget === amt ? 'border-[#D4A843]/60 bg-[#D4A843]/5 text-[#E8C070] font-bold' : 'border-white/[0.03] text-[#8892A4]'}`}
-                  >
-                    ₹{amt >= 10000 ? amt/1000 + 'k' : amt}
-                  </button>
-                ))}
-              </div>
-
-              <div id="deployment-verdict-box" className="p-3 bg-white/[0.01] border border-white/[0.03] rounded-lg space-y-2">
-                <div className="flex justify-between text-[9px] font-mono uppercase text-[#8892A4]">
-                  <span>Optimized Tranche Allotment ({sipDeployment.percent}):</span>
-                  <span className="text-[#34A77A] font-bold font-mono">₹{sipDeployment.deploy.toLocaleString('en-IN')}</span>
+              <div className="space-y-3.5 font-mono text-xs">
+                <div>
+                  <label className="text-[9.5px] text-[#8892A4] uppercase tracking-wider block mb-1">Target Monthly Installment (INR)</label>
+                  <input 
+                    id="monthly-budget-input"
+                    type="number" 
+                    value={monthlyBudget} 
+                    onChange={(e) => setMonthlyBudget(Number(e.target.value))}
+                    className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
+                  />
                 </div>
-                {sipDeployment.reserve > 0 && (
+
+                {/* Preset buttons */}
+                <div id="preset-amounts-row" className="flex gap-1.5 pt-1">
+                  {[3000, 5000, 10000, 25000].map(amt => (
+                    <button
+                      id={`preset-${amt}`}
+                      key={amt}
+                      onClick={() => setMonthlyBudget(amt)}
+                      className={`flex-1 py-1.5 bg-white/[0.01] hover:bg-white/[0.04] border rounded text-[9.5px] font-mono ${monthlyBudget === amt ? 'border-[#D4A843]/60 bg-[#D4A843]/5 text-[#E8C070] font-bold' : 'border-white/[0.03] text-[#8892A4]'}`}
+                    >
+                      ₹{amt >= 10000 ? amt/1000 + 'k' : amt}
+                    </button>
+                  ))}
+                </div>
+
+                <div id="deployment-verdict-box" className="p-3 bg-white/[0.01] border border-white/[0.03] rounded-lg space-y-2">
                   <div className="flex justify-between text-[9px] font-mono uppercase text-[#8892A4]">
-                    <span>Reserve Cash Divert (40%):</span>
-                    <span className="text-amber-500 font-bold font-mono">₹{sipDeployment.reserve.toLocaleString('en-IN')}</span>
+                    <span>Optimized Tranche Allotment ({sipDeployment.percent}):</span>
+                    <span className="text-[#34A77A] font-bold font-mono">₹{sipDeployment.deploy.toLocaleString('en-IN')}</span>
                   </div>
-                )}
-                <div className="text-[10px] text-[#8892A4] font-body normal-case leading-relaxed border-t border-white/[0.03] pt-2">
-                  <strong>Smart Formula Rule:</strong> {sipDeployment.reason}
+                  {sipDeployment.reserve > 0 && (
+                    <div className="flex justify-between text-[9px] font-mono uppercase text-[#8892A4]">
+                      <span>Reserve Cash Divert (40%):</span>
+                      <span className="text-amber-500 font-bold font-mono">₹{sipDeployment.reserve.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  <div className="text-[10px] text-[#8892A4] font-body normal-case leading-relaxed border-t border-white/[0.03] pt-2">
+                    <strong>Smart Formula Rule:</strong> {sipDeployment.reason}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div id="deployment-system-verdict" className="mt-4 pt-3 border-t border-white/[0.04] text-[9px] font-mono text-zinc-400 flex items-center justify-between">
-            <span>RSI Trigger Boundary:</span>
-            <span className="text-emerald-400 font-bold">★ CALIBRATED</span>
-          </div>
-        </div>
-
-        {/* column 2: Dynamic Compounding simulator to sliders */}
-        <div id="compounding-simulator" className="xl:col-span-8 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/[0.04] pb-2.5">
-            <div>
-              <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">CAGR Simulator</span>
-              <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">SIP Dynamic Compounding Curve Projections</h4>
-            </div>
-            <div className="font-mono text-right text-[10px] text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10">
-              Smart SIP earns ₹{compoundProjectionData.difference.toLocaleString('en-IN')} more!
+            <div id="deployment-system-verdict" className="mt-4 pt-3 border-t border-white/[0.04] text-[9px] font-mono text-zinc-400 flex items-center justify-between">
+              <span>RSI Trigger Boundary:</span>
+              <span className="text-emerald-400 font-bold">★ CALIBRATED</span>
             </div>
           </div>
 
-          <div id="simulator-sliders" className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01] p-3 rounded-xl border border-white/[0.02]">
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-[#8892A4]">EXPECTED ANNUAL RETURN (%):</span>
-                <span className="text-[#E8C070] font-bold">{sliderRate}%</span>
+          {/* column 2: Dynamic Compounding simulator to sliders */}
+          <div id="compounding-simulator" className="xl:col-span-8 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/[0.04] pb-2.5">
+              <div>
+                <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">CAGR Simulator</span>
+                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">SIP Dynamic Compounding Curve Projections</h4>
               </div>
-              <input 
-                id="rate-slider"
-                type="range" 
-                min="8" 
-                max="25" 
-                value={sliderRate} 
-                onChange={(e) => setSliderRate(Number(e.target.value))}
-                className="w-full accent-[#D4A843] cursor-pointer bg-white/10 h-1 rounded-lg"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-[#8892A4]">TIME PERIOD:</span>
-                <span className="text-[#E8C070] font-bold">{sliderDuration} Years</span>
+              <div className="font-mono text-right text-[10px] text-amber-400 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10">
+                Smart SIP earns ₹{compoundProjectionData.difference.toLocaleString('en-IN')} more!
               </div>
-              <input 
-                id="duration-slider"
-                type="range" 
-                min="1" 
-                max="20" 
-                value={sliderDuration} 
-                onChange={(e) => setSliderDuration(Number(e.target.value))}
-                className="w-full accent-[#D4A843] cursor-pointer bg-white/10 h-1 rounded-lg"
-              />
             </div>
-          </div>
 
-          <div id="simulator-chart-container" className="h-44 mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={compoundProjectionData.points} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorStdSip" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4A5568" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#4A5568" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorSmartSip" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D4A843" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#D4A843" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
-                <XAxis dataKey="year" stroke="#4A5568" fontSize={9} fontStyle="italic" />
-                <YAxis stroke="#4A5568" fontSize={9} tickFormatter={(val) => '₹' + (val >= 100000 ? (val/100000).toFixed(1) + 'L' : val / 1000 + 'k')} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#07090E', borderColor: 'rgba(212,168,67,0.2)', borderRadius: '8px' }}
-                  labelClassName="text-xs text-[#8892A4] font-mono"
-                  formatter={(value: any) => [`₹${value.toLocaleString('en-IN')}`, '']}
+            <div id="simulator-sliders" className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01] p-3 rounded-xl border border-white/[0.02]">
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-[#8892A4]">EXPECTED ANNUAL RETURN (%):</span>
+                  <span className="text-[#E8C070] font-bold">{sliderRate}%</span>
+                </div>
+                <input 
+                  id="rate-slider"
+                  type="range" 
+                  min="8" 
+                  max="25" 
+                  value={sliderRate} 
+                  onChange={(e) => setSliderRate(Number(e.target.value))}
+                  className="w-full accent-[#D4A843] cursor-pointer bg-white/10 h-1 rounded-lg"
                 />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: '9px', fontFamily: 'monospace' }} />
-                <Area type="monotone" name="Standard SIP (INR)" dataKey="standardValue" stroke="#8892A4" strokeWidth={1} fillOpacity={1} fill="url(#colorStdSip)" />
-                <Area type="monotone" name="Smart RSI SIP (INR)" dataKey="smartValue" stroke="#D4A843" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSmartSip)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+              </div>
 
-      </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-[#8892A4]">TIME PERIOD:</span>
+                  <span className="text-[#E8C070] font-bold">{sliderDuration} Years</span>
+                </div>
+                <input 
+                  id="duration-slider"
+                  type="range" 
+                  min="1" 
+                  max="20" 
+                  value={sliderDuration} 
+                  onChange={(e) => setSliderDuration(Number(e.target.value))}
+                  className="w-full accent-[#D4A843] cursor-pointer bg-white/10 h-1 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div id="simulator-chart-container" className="h-44 mt-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={compoundProjectionData.points} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorStdSip" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4A5568" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#4A5568" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorSmartSip" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#D4A843" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#D4A843" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
+                  <XAxis dataKey="year" stroke="#4A5568" fontSize={9} fontStyle="italic" />
+                  <YAxis stroke="#4A5568" fontSize={9} tickFormatter={(val) => '₹' + (val >= 100000 ? (val/100000).toFixed(1) + 'L' : val / 1000 + 'k')} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#07090E', borderColor: 'rgba(212,168,67,0.2)', borderRadius: '8px' }}
+                    labelClassName="text-xs text-[#8892A4] font-mono"
+                    formatter={(value: any) => [`₹${value.toLocaleString('en-IN')}`, '']}
+                  />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '9px', fontFamily: 'monospace' }} />
+                  <Area type="monotone" name="Standard SIP (INR)" dataKey="standardValue" stroke="#8892A4" strokeWidth={1} fillOpacity={1} fill="url(#colorStdSip)" />
+                  <Area type="monotone" name="Smart RSI SIP (INR)" dataKey="smartValue" stroke="#D4A843" strokeWidth={1.5} fillOpacity={1} fill="url(#colorSmartSip)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+        </div>
+      </ProGate>
 
       {!isPro && (
         <div className="mt-4 mb-2">
@@ -861,129 +864,131 @@ export function SipTracker() {
         SIP Performance Tracker (Real historical comparison)
       </h3>
 
-      <div id="sip-performance-row" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Input variables card */}
-        <div id="performance-inputs-card" className="lg:col-span-4 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
-          <div className="border-b border-white/[0.04] pb-2">
-            <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">PORTFOLIO CALIBRATION</span>
-            <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Historical Simulation Parameters</h4>
+      <ProGate feature="SIP Hub Advanced Features" isPro={isPro}>
+        <div id="sip-performance-row" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Input variables card */}
+          <div id="performance-inputs-card" className="lg:col-span-4 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
+            <div className="border-b border-white/[0.04] pb-2">
+              <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">PORTFOLIO CALIBRATION</span>
+              <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Historical Simulation Parameters</h4>
+            </div>
+
+            <div className="space-y-3.5 font-mono text-xs">
+              <div>
+                <label className="text-[10px] text-[#8892A4] uppercase tracking-wider block mb-1">SIP START DATE (YYYY-MM-DD)</label>
+                <input 
+                  id="sip-start-date-input"
+                  type="date" 
+                  value={sipStartDate} 
+                  onChange={(e) => setSipStartDate(e.target.value)}
+                  min="2018-01-01"
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[#8892A4] uppercase tracking-wider block mb-1">MONTHLY ALLOTMENT AMOUNT (INR)</label>
+                <input 
+                  id="performance-amount-input"
+                  type="number" 
+                  value={performanceAmount} 
+                  onChange={(e) => setPerformanceAmount(Number(e.target.value))}
+                  className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
+                />
+              </div>
+
+              <div id="live-calculation-helper" className="p-3 bg-white/[0.01] border border-white/[0.03] rounded-lg text-[9.5px] font-mono text-[#8892A4] leading-relaxed">
+                Calculates index unit accumulation date by date utilizing closing prices of the first available trading session for each calendar month.
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3.5 font-mono text-xs">
-            <div>
-              <label className="text-[10px] text-[#8892A4] uppercase tracking-wider block mb-1">SIP START DATE (YYYY-MM-DD)</label>
-              <input 
-                id="sip-start-date-input"
-                type="date" 
-                value={sipStartDate} 
-                onChange={(e) => setSipStartDate(e.target.value)}
-                min="2018-01-01"
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
-              />
-            </div>
+          {/* Real historical output metrics with isolated error boundaries */}
+          <div id="performance-metrics-card" className="lg:col-span-8 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl flex flex-col justify-between">
+            {historyLoading ? (
+              <SectionSkeleton />
+            ) : historyError ? (
+              <SectionError message={historyError} />
+            ) : performanceMetrics ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-white/[0.04] pb-2.5">
+                  <div>
+                    <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">HISTORICAL AUDIT REPORT</span>
+                    <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Realized Investment Outcomes for {selectedAsset.split('.')[0]}</h4>
+                  </div>
+                  {/* XIRR Badge */}
+                  <div id="xirr-badge-box" className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center font-mono">
+                    <span className="text-[7px] text-[#8892A4] uppercase block leading-none font-bold">ANNUALIZED XIRR</span>
+                    <span className="text-sm font-bold text-[#34A77A] mt-0.5 block">{performanceMetrics.xirr}%</span>
+                  </div>
+                </div>
 
-            <div>
-              <label className="text-[10px] text-[#8892A4] uppercase tracking-wider block mb-1">MONTHLY ALLOTMENT AMOUNT (INR)</label>
-              <input 
-                id="performance-amount-input"
-                type="number" 
-                value={performanceAmount} 
-                onChange={(e) => setPerformanceAmount(Number(e.target.value))}
-                className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
-              />
-            </div>
+                {/* Data numbers grid */}
+                <div id="performance-stats-grid" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
+                    <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">TOTAL INVESTED</span>
+                    <span className="text-sm font-bold text-white mt-1.5 block font-mono">₹{performanceMetrics.totalInvested.toLocaleString('en-IN')}</span>
+                  </div>
 
-            <div id="live-calculation-helper" className="p-3 bg-white/[0.01] border border-white/[0.03] rounded-lg text-[9.5px] font-mono text-[#8892A4] leading-relaxed">
-              Calculates index unit accumulation date by date utilizing closing prices of the first available trading session for each calendar month.
-            </div>
+                  <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
+                    <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">PORTFOLIO VALUE</span>
+                    <span className="text-sm font-bold text-white mt-1.5 block font-mono">₹{performanceMetrics.currentPortfolioValue.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
+                    <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">ABSOLUTE RETURNS %</span>
+                    <span className={`text-sm font-bold mt-1.5 block font-mono ${performanceMetrics.absoluteReturnRupees >= 0 ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
+                      ₹{performanceMetrics.absoluteReturnRupees.toLocaleString('en-IN')} ({performanceMetrics.absoluteReturnPercent}%)
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
+                    <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">LUMP SUM ALIGNMENT</span>
+                    <span className="text-sm font-bold text-[#8892A4] mt-1.5 block font-mono">₹{performanceMetrics.lumpValueToday.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+
+                {/* Min Max months check */}
+                <div id="min-max-months" className="grid grid-cols-2 gap-4 bg-white/[0.01] p-3 rounded-xl border border-white/[0.03] text-[10.5px] font-mono">
+                  <div className="flex justify-between items-center text-rose-400">
+                    <span>WORST MONTH RETURN:</span>
+                    <span className="font-bold">{performanceMetrics.worstMonth}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[#34A77A]">
+                    <span>BEST MONTH RETURN:</span>
+                    <span className="font-bold">+{performanceMetrics.bestMonth}%</span>
+                  </div>
+                </div>
+
+                {/* Mini area chart tracking capital vs value */}
+                <div id="performance-history-chart text" className="space-y-1">
+                  <span className="text-[8px] font-mono text-zinc-550 uppercase tracking-widest block font-bold">Historical Unit Capitalization Curves</span>
+                  <div className="h-28">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={performanceMetrics.trackingPoints} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.01)" />
+                        <XAxis dataKey="date" stroke="#4A5568" fontSize={8} />
+                        <YAxis stroke="#4A5568" fontSize={8} />
+                        <Tooltip contentStyle={{ backgroundColor: '#07090E', border: '1px solid rgba(255,255,255,0.05)' }} formatter={(v) => `₹${Number(v).toLocaleString('en-IN')}`} />
+                        <Line type="monotone" name="Total Invested" dataKey="invested" stroke="#8892A4" strokeWidth={1} dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" name="Portfolio Value" dataKey="portfolioValue" stroke="#D4A843" strokeWidth={1.5} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div id="metrics-fallback-msg" className="flex flex-col items-center justify-center py-10 font-mono text-[10px] text-[#8892A4] uppercase gap-2 text-center">
+                <AlertTriangle className="text-amber-400 animate-pulse" size={18} />
+                <span>Sparse historical bars in database. Choose a later Start Date or synchronize the asset.</span>
+              </div>
+            )}
           </div>
+
         </div>
-
-        {/* Real historical output metrics with isolated error boundaries */}
-        <div id="performance-metrics-card" className="lg:col-span-8 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl flex flex-col justify-between">
-          {historyLoading ? (
-            <SectionSkeleton />
-          ) : historyError ? (
-            <SectionError message={historyError} />
-          ) : performanceMetrics ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-white/[0.04] pb-2.5">
-                <div>
-                  <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">HISTORICAL AUDIT REPORT</span>
-                  <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Realized Investment Outcomes for {selectedAsset.split('.')[0]}</h4>
-                </div>
-                {/* XIRR Badge */}
-                <div id="xirr-badge-box" className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center font-mono">
-                  <span className="text-[7px] text-[#8892A4] uppercase block leading-none font-bold">ANNUALIZED XIRR</span>
-                  <span className="text-sm font-bold text-[#34A77A] mt-0.5 block">{performanceMetrics.xirr}%</span>
-                </div>
-              </div>
-
-              {/* Data numbers grid */}
-              <div id="performance-stats-grid" className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
-                  <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">TOTAL INVESTED</span>
-                  <span className="text-sm font-bold text-white mt-1.5 block font-mono">₹{performanceMetrics.totalInvested.toLocaleString('en-IN')}</span>
-                </div>
-
-                <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
-                  <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">PORTFOLIO VALUE</span>
-                  <span className="text-sm font-bold text-white mt-1.5 block font-mono">₹{performanceMetrics.currentPortfolioValue.toLocaleString('en-IN')}</span>
-                </div>
-
-                <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
-                  <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">ABSOLUTE RETURNS %</span>
-                  <span className={`text-sm font-bold mt-1.5 block font-mono ${performanceMetrics.absoluteReturnRupees >= 0 ? 'text-[#34A77A]' : 'text-[#E05252]'}`}>
-                    ₹{performanceMetrics.absoluteReturnRupees.toLocaleString('en-IN')} ({performanceMetrics.absoluteReturnPercent}%)
-                  </span>
-                </div>
-
-                <div className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg">
-                  <span className="text-[8px] font-mono text-[#4A5568] uppercase block leading-none">LUMP SUM ALIGNMENT</span>
-                  <span className="text-sm font-bold text-[#8892A4] mt-1.5 block font-mono">₹{performanceMetrics.lumpValueToday.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-
-              {/* Min Max months check */}
-              <div id="min-max-months" className="grid grid-cols-2 gap-4 bg-white/[0.01] p-3 rounded-xl border border-white/[0.03] text-[10.5px] font-mono">
-                <div className="flex justify-between items-center text-rose-400">
-                  <span>WORST MONTH RETURN:</span>
-                  <span className="font-bold">{performanceMetrics.worstMonth}%</span>
-                </div>
-                <div className="flex justify-between items-center text-[#34A77A]">
-                  <span>BEST MONTH RETURN:</span>
-                  <span className="font-bold">+{performanceMetrics.bestMonth}%</span>
-                </div>
-              </div>
-
-              {/* Mini area chart tracking capital vs value */}
-              <div id="performance-history-chart text" className="space-y-1">
-                <span className="text-[8px] font-mono text-zinc-550 uppercase tracking-widest block font-bold">Historical Unit Capitalization Curves</span>
-                <div className="h-28">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={performanceMetrics.trackingPoints} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.01)" />
-                      <XAxis dataKey="date" stroke="#4A5568" fontSize={8} />
-                      <YAxis stroke="#4A5568" fontSize={8} />
-                      <Tooltip contentStyle={{ backgroundColor: '#07090E', border: '1px solid rgba(255,255,255,0.05)' }} formatter={(v) => `₹${Number(v).toLocaleString('en-IN')}`} />
-                      <Line type="monotone" name="Total Invested" dataKey="invested" stroke="#8892A4" strokeWidth={1} dot={false} strokeDasharray="3 3" />
-                      <Line type="monotone" name="Portfolio Value" dataKey="portfolioValue" stroke="#D4A843" strokeWidth={1.5} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div id="metrics-fallback-msg" className="flex flex-col items-center justify-center py-10 font-mono text-[10px] text-[#8892A4] uppercase gap-2 text-center">
-              <AlertTriangle className="text-amber-400 animate-pulse" size={18} />
-              <span>Sparse historical bars in database. Choose a later Start Date or synchronize the asset.</span>
-            </div>
-          )}
-        </div>
-
-      </div>
+      </ProGate>
 
       {/* ================= SECTION 3: POSITION SIZING (BOTTOM) ================= */}
       <h3 id="section-3-title" className="text-sm font-mono font-bold uppercase text-[#E8C070] tracking-widest border-b border-white/[0.05] pb-2 flex items-center gap-2 mt-2">
@@ -991,95 +996,97 @@ export function SipTracker() {
         Section 3: Position Sizing & ATR swing boundaries
       </h3>
 
-      <div id="position-sizing-row" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Inputs parameters */}
-        <div id="swing-parameters-card" className="lg:col-span-5 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
-          <div className="border-b border-white/[0.04] pb-2">
-            <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">SWING CAPITAL ALLOTMENT</span>
-            <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Parameters Configuration</h4>
-          </div>
-
-          <div className="space-y-3.5 font-mono text-xs">
-            <div>
-              <label className="text-[10px] text-[#8892A4] uppercase block mb-1">SWING ALLOCATION CAPITAL POOL (INR)</label>
-              <input 
-                id="swing-capital-input"
-                type="number" 
-                value={swingCapital} 
-                onChange={(e) => setSwingCapital(Number(e.target.value))}
-                className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
-              />
+      <ProGate feature="SIP Hub Advanced Features" isPro={isPro}>
+        <div id="position-sizing-row" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Inputs parameters */}
+          <div id="swing-parameters-card" className="lg:col-span-5 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl space-y-4">
+            <div className="border-b border-white/[0.04] pb-2">
+              <span className="text-[9px] font-mono font-bold text-[#D4A843] uppercase tracking-widest block">SWING CAPITAL ALLOTMENT</span>
+              <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Parameters Configuration</h4>
             </div>
 
-            <div>
-              <label className="text-[10px] text-[#8892A4] uppercase block mb-1">MAX POSITION RISK LIMIT (%)</label>
-              <input 
-                id="swing-risk-input"
-                type="number" 
-                step="0.5"
-                value={riskPercent} 
-                onChange={(e) => setRiskPercent(Number(e.target.value))}
-                className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
-              />
-            </div>
-
-            <div id="atr-calc-info" className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg text-[9px] block leading-relaxed space-y-1">
-              <div className="flex justify-between">
-                <span>Calculated 14-Day ATR Volatility:</span>
-                <span className="text-white font-bold font-mono">₹{atrMetrics.atr.toFixed(2)}</span>
+            <div className="space-y-3.5 font-mono text-xs">
+              <div>
+                <label className="text-[10px] text-[#8892A4] uppercase block mb-1">SWING ALLOCATION CAPITAL POOL (INR)</label>
+                <input 
+                  id="swing-capital-input"
+                  type="number" 
+                  value={swingCapital} 
+                  onChange={(e) => setSwingCapital(Number(e.target.value))}
+                  className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
+                />
               </div>
-              <p className="text-[#8892A4] italic text-[8.5px] mt-0.5 lowercase">Derived from Welles Wilder's daily True Range calculations on SQLite candlesticks.</p>
+
+              <div>
+                <label className="text-[10px] text-[#8892A4] uppercase block mb-1">MAX POSITION RISK LIMIT (%)</label>
+                <input 
+                  id="swing-risk-input"
+                  type="number" 
+                  step="0.5"
+                  value={riskPercent} 
+                  onChange={(e) => setRiskPercent(Number(e.target.value))}
+                  className="w-full bg-[#05070C] border border-white/[0.06] rounded-lg p-2 text-white focus:outline-none focus:border-[#D4A843]/60 font-mono"
+                />
+              </div>
+
+              <div id="atr-calc-info" className="p-3 bg-white/[0.015] border border-white/[0.03] rounded-lg text-[9px] block leading-relaxed space-y-1">
+                <div className="flex justify-between">
+                  <span>Calculated 14-Day ATR Volatility:</span>
+                  <span className="text-white font-bold font-mono">₹{atrMetrics.atr.toFixed(2)}</span>
+                </div>
+                <p className="text-[#8892A4] italic text-[8.5px] mt-0.5 lowercase">Derived from Welles Wilder's daily True Range calculations on SQLite candlesticks.</p>
+              </div>
             </div>
           </div>
+
+          {/* Dynamic swing allocation directives */}
+          <div id="swing-directives-card" className="lg:col-span-7 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="border-b border-white/[0.02] pb-2.5">
+                <span className="text-[10px] font-mono text-[#D4A843] uppercase tracking-widest block font-bold">ATR POSITION SIZER RESULTS</span>
+                <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Tactical Swing Blueprint for {selectedAsset.split('.')[0]}</h4>
+              </div>
+
+              <div id="directives-stats-row" className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-white/[0.02] border border-white/[0.03] rounded-xl font-mono">
+                  <span className="text-[8.5px] text-[#8892A4] uppercase tracking-wider block">RECOMMENDED POSITION SIZE</span>
+                  <span className="text-xl font-bold block text-[#E8C070] mt-1 font-mono">{atrMetrics.maxUnits} Units</span>
+                  <span className="text-[8px] text-[#4A5568] mt-0.5 block uppercase">optimized count</span>
+                </div>
+
+                <div className="p-3 bg-white/[0.02] border border-white/[0.03] rounded-xl font-mono">
+                  <span className="text-[8.5px] text-[#8892A4] uppercase tracking-wider block">CAPITAL EXPOSURE LIMIT</span>
+                  <span className="text-xl font-bold block text-white mt-1 font-mono">₹{atrMetrics.totalExposure.toLocaleString('en-IN')}</span>
+                  <span className="text-[8px] text-[#4A5568] mt-0.5 block uppercase">allocated capital pool</span>
+                </div>
+              </div>
+
+              {/* Target & stop ranges */}
+              <div id="target-ranges-grid" className="grid grid-cols-3 gap-2.5 text-center font-mono text-[10px]">
+                <div className="bg-[#E05252]/10 p-2 border border-[#E05252]/20 rounded-lg">
+                  <span className="text-[#E05252] block text-[8px] uppercase font-bold">STOP LOSS (-2 ATR)</span>
+                  <span className="text-white mt-1 block font-mono">₹{atrMetrics.stopLoss.toFixed(2)}</span>
+                </div>
+                <div className="bg-[#34A77A]/10 p-2 border border-[#34A77A]/20 rounded-lg">
+                  <span className="text-[#34A77A] block text-[8px] uppercase font-bold">TARGET 1 (+3 ATR)</span>
+                  <span className="text-white mt-1 block font-mono">₹{atrMetrics.target1.toFixed(2)}</span>
+                </div>
+                <div className="bg-[#D4A843]/10 p-2 border border-[#D4A843]/20 rounded-lg">
+                  <span className="text-[#E8C070] block text-[8px] uppercase font-bold">TARGET 2 (+5 ATR)</span>
+                  <span className="text-white mt-1 block font-mono">₹{atrMetrics.target2.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="swing-account-risk-banner" className="mt-4 pt-3 border-t border-white/[0.04] text-[9.5px] font-mono text-[#8892A4] flex justify-between items-center">
+              <span>MAX ACCOUNT RISK LIMIT: ₹{atrMetrics.riskAmount.toFixed(2)}</span>
+              <span className="text-[#34A77A] font-bold">1:{atrMetrics.riskRewardRatio.toFixed(1)} RISK REWARD RATIO</span>
+            </div>
+          </div>
+
         </div>
-
-        {/* Dynamic swing allocation directives */}
-        <div id="swing-directives-card" className="lg:col-span-7 bg-black/40 border border-[#D4A843]/15 p-5 rounded-xl flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="border-b border-white/[0.02] pb-2.5">
-              <span className="text-[10px] font-mono text-[#D4A843] uppercase tracking-widest block font-bold">ATR POSITION SIZER RESULTS</span>
-              <h4 className="font-display font-semibold text-sm text-[#F0F4FF] mt-0.5">Tactical Swing Blueprint for {selectedAsset.split('.')[0]}</h4>
-            </div>
-
-            <div id="directives-stats-row" className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-white/[0.02] border border-white/[0.03] rounded-xl font-mono">
-                <span className="text-[8.5px] text-[#8892A4] uppercase tracking-wider block">RECOMMENDED POSITION SIZE</span>
-                <span className="text-xl font-bold block text-[#E8C070] mt-1 font-mono">{atrMetrics.maxUnits} Units</span>
-                <span className="text-[8px] text-[#4A5568] mt-0.5 block uppercase">optimized count</span>
-              </div>
-
-              <div className="p-3 bg-white/[0.02] border border-white/[0.03] rounded-xl font-mono">
-                <span className="text-[8.5px] text-[#8892A4] uppercase tracking-wider block">CAPITAL EXPOSURE LIMIT</span>
-                <span className="text-xl font-bold block text-white mt-1 font-mono">₹{atrMetrics.totalExposure.toLocaleString('en-IN')}</span>
-                <span className="text-[8px] text-[#4A5568] mt-0.5 block uppercase">allocated capital pool</span>
-              </div>
-            </div>
-
-            {/* Target & stop ranges */}
-            <div id="target-ranges-grid" className="grid grid-cols-3 gap-2.5 text-center font-mono text-[10px]">
-              <div className="bg-[#E05252]/10 p-2 border border-[#E05252]/20 rounded-lg">
-                <span className="text-[#E05252] block text-[8px] uppercase font-bold">STOP LOSS (-2 ATR)</span>
-                <span className="text-white mt-1 block font-mono">₹{atrMetrics.stopLoss.toFixed(2)}</span>
-              </div>
-              <div className="bg-[#34A77A]/10 p-2 border border-[#34A77A]/20 rounded-lg">
-                <span className="text-[#34A77A] block text-[8px] uppercase font-bold">TARGET 1 (+3 ATR)</span>
-                <span className="text-white mt-1 block font-mono">₹{atrMetrics.target1.toFixed(2)}</span>
-              </div>
-              <div className="bg-[#D4A843]/10 p-2 border border-[#D4A843]/20 rounded-lg">
-                <span className="text-[#E8C070] block text-[8px] uppercase font-bold">TARGET 2 (+5 ATR)</span>
-                <span className="text-white mt-1 block font-mono">₹{atrMetrics.target2.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div id="swing-account-risk-banner" className="mt-4 pt-3 border-t border-white/[0.04] text-[9.5px] font-mono text-[#8892A4] flex justify-between items-center">
-            <span>MAX ACCOUNT RISK LIMIT: ₹{atrMetrics.riskAmount.toFixed(2)}</span>
-            <span className="text-[#34A77A] font-bold">1:{atrMetrics.riskRewardRatio.toFixed(1)} RISK REWARD RATIO</span>
-          </div>
-        </div>
-
-      </div>
+      </ProGate>
 
     </div>
   );

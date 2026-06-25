@@ -395,9 +395,16 @@ function AppContent() {
                       {userProfile?.displayName || user.email?.split('@')[0]}
                     </h4>
                     {plan === 'pro_early' ? (
-                      <span className="text-[8.5px] text-[#D4A843] font-data border border-[#D4A843]/20 px-1.5 py-0.5 rounded bg-[#D4A843]/5 uppercase tracking-wide inline-block leading-none mt-1">
-                        Early access #{earlyAccessNumber} {daysRemaining !== null ? `(${daysRemaining}d left)` : ''}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[8.5px] text-[#D4A843] font-data border border-[#D4A843]/20 px-1.5 py-0.5 rounded bg-[#D4A843]/5 uppercase tracking-wide inline-block leading-none mt-1">
+                          Early access #{earlyAccessNumber} {daysRemaining !== null ? `(${daysRemaining}d left)` : ''}
+                        </span>
+                        {daysRemaining !== null && daysRemaining < 7 && (
+                          <span className="text-[8px] text-amber-500 font-bold flex items-center gap-1 mt-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded animate-pulse w-max">
+                            <AlertTriangle size={8} /> TRIAL EXPIRES SOON
+                          </span>
+                        )}
+                      </div>
                     ) : plan === 'pro_paid' ? (
                       <span className="text-[8.5px] text-[#D4A843] font-data border border-[#D4A843]/20 px-1.5 py-0.5 rounded bg-[#D4A843]/5 uppercase tracking-wide inline-block leading-none mt-1">
                         PRO ACTIVE

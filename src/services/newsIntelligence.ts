@@ -249,9 +249,30 @@ export async function getSymbolIntelligence(symbol: string): Promise<SymbolIntel
     const qRaw = await yahooFinance.quote(symKey) as any;
     if (qRaw && qRaw.regularMarketPrice) {
       lastPrice = qRaw.regularMarketPrice;
+      console.log(`[SymbolIntelligence] Resolved lastPrice for ${symKey} via Yahoo Finance: ${lastPrice}`);
+    } else {
+      throw new Error("Yahoo Finance quote returned null price");
     }
-  } catch {
-    // fallback
+  } catch (err: any) {
+    console.log(`[SymbolIntelligence] yahooFinance.quote failed for ${symKey} (${err.message}). Trying fallback price sources...`);
+    try {
+      const { getPricesHistory } = await import('./serverApi');
+      const prices = await getPricesHistory(symKey, 50);
+      if (prices && prices.length > 0) {
+        lastPrice = prices[prices.length - 1].close;
+        console.log(`[SymbolIntelligence] Resolved fallback lastPrice for ${symKey} via getPricesHistory: ${lastPrice}`);
+      } else {
+        const { getNSEQuote } = await import('./nseQuotes');
+        const cleanSym = symKey.split('.')[0];
+        const q = await getNSEQuote(cleanSym);
+        if (q && q.lastPrice > 0) {
+          lastPrice = q.lastPrice;
+          console.log(`[SymbolIntelligence] Resolved fallback lastPrice for ${symKey} via getNSEQuote: ${lastPrice}`);
+        }
+      }
+    } catch (fallbackErr: any) {
+      console.warn(`[SymbolIntelligence] Failed to resolve fallback price for ${symKey}:`, fallbackErr.message);
+    }
   }
 
   const [dealsSignal, promoterData, newsHeadlines] = await Promise.all([

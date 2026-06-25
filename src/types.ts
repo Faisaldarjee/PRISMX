@@ -172,7 +172,7 @@ export interface SentimentData {
 export interface AccuracyData {
   overall_accuracy: number;
   by_asset: Record<string, number>;
-  by_agent: Record<string, number>;
+  by_agent: Record<string, any>;
   total_predictions: number;
   period_days: number;
   recent_ledger?: any[];
