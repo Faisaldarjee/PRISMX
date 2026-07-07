@@ -152,15 +152,15 @@ export const PrismLogo: React.FC<PrismLogoProps> = ({
         <div className="flex flex-col select-none pt-0.5 justify-center">
           <div className="flex items-center">
             <span 
-              className="font-bold uppercase tracking-[0.3em] bg-gradient-to-r from-[#FFF5C0] via-[#E5BF5E] to-[#B58B24] bg-clip-text text-transparent leading-none"
+              className="font-bold uppercase tracking-[0.3em] text-white leading-none"
               style={{ 
                 fontFamily: '"Space Grotesk", "Inter", system-ui, sans-serif',
                 fontSize: '21px',
-                fontWeight: 600,
+                fontWeight: 700,
                 letterSpacing: '0.28em'
               }}
             >
-              PRISMX
+              PRISM<span className="inline-block bg-gradient-to-b from-[#F5D061] via-[#D4A843] to-[#854D00] bg-clip-text text-transparent">X</span>
             </span>
           </div>
           {/* Thin, elegant horizontal gold/bronze separator line */}
