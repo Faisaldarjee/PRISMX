@@ -177,6 +177,21 @@ export default function Landing({ onOpenAuth }: LandingProps) {
 
       {/* ZONE 1: REDESIGNED SPLIT HERO SECTION */}
       <section className="pt-36 pb-24 px-6 max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
+        {/* Hero Logo */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="mb-8"
+        >
+          <img 
+            src="/prismx-logo.png" 
+            alt="PRISMX — Predictive Risk Intelligence & Strategy Matrix" 
+            className="w-56 sm:w-72 md:w-80 h-auto drop-shadow-[0_8px_40px_rgba(212,168,67,0.3)] select-none pointer-events-none"
+            draggable={false}
+          />
+        </motion.div>
+
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

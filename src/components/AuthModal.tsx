@@ -169,9 +169,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         {/* Header Decorator */}
         <div className="bg-gradient-to-r from-emerald-500/10 via-slate-900 to-indigo-500/10 p-6 pt-8 text-center border-b border-slate-800/60">
-          <div className="mx-auto w-10 h-10 rounded-xl bg-slate-800/80 flex items-center justify-center mb-3">
-            <ShieldCheck className="text-emerald-400" size={20} />
-          </div>
+          <img 
+            src="/prismx-icon.png" 
+            alt="PRISMX" 
+            className="mx-auto w-12 h-12 rounded-xl mb-3 drop-shadow-[0_4px_15px_rgba(212,168,67,0.3)]"
+            draggable={false}
+          />
           <h2 className="text-xl font-bold text-white uppercase tracking-wider font-mono">
             {view === 'LOGIN' && 'Sign In to Workspace'}
             {view === 'SIGNUP' && 'Create Cloud Profile'}
