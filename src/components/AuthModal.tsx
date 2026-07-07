@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../services/AuthProvider';
 import { Mail, Lock, User, RefreshCw, X, ShieldCheck, HelpCircle } from 'lucide-react';
+import { PrismLogo } from './PrismLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -169,12 +170,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         {/* Header Decorator */}
         <div className="bg-gradient-to-r from-emerald-500/10 via-slate-900 to-indigo-500/10 p-6 pt-8 text-center border-b border-slate-800/60">
-          <img 
-            src="/prismx-icon.png" 
-            alt="PRISMX" 
-            className="mx-auto w-12 h-12 rounded-xl mb-3 drop-shadow-[0_4px_15px_rgba(212,168,67,0.3)]"
-            draggable={false}
-          />
+          <div className="flex justify-center mb-3">
+            <PrismLogo size={40} showText={false} />
+          </div>
           <h2 className="text-xl font-bold text-white uppercase tracking-wider font-mono">
             {view === 'LOGIN' && 'Sign In to Workspace'}
             {view === 'SIGNUP' && 'Create Cloud Profile'}

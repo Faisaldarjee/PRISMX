@@ -440,8 +440,10 @@ export function Dashboard() {
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="space-y-1">
-            <span className="font-data text-[10px] text-[#D4A843] uppercase tracking-widest block font-medium">
-              PRISMX RISK INTELLIGENCE MATRIX · SYSTEMATIC ANALYSIS
+            <span className="font-data text-[10px] uppercase tracking-widest block font-medium">
+              <span className="text-white">PRISM</span>
+              <span className="text-[#D4A843]">X</span>
+              <span className="text-[#D4A843]"> Risk Intelligence Matrix · Systematic Analysis</span>
             </span>
             <h2 className="text-2xl font-medium tracking-tight text-[#F0F4FF] font-display">
               Good morning, {username}
