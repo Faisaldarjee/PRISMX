@@ -1,8 +1,16 @@
+import { db } from './database';
+
 export interface AgentSignal {
   agent: 'technical' | 'smc' | 'macro' | 'sentiment' | 'news';
   signal: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
   confidence: number; // 0 - 100
   weight: number; // fractional weight, e.g. 0.35, sum of all active weights = 1.0
+}
+
+export interface AgentInput {
+  agent: 'technical' | 'smc' | 'macro' | 'sentiment' | 'news';
+  signal: string;
+  confidence: number;
 }
 
 export interface ConsensusResult {
@@ -36,15 +44,165 @@ export class WeightedConsensusEngine {
   };
 
   /**
-   * Reconcile multiple agent signals into one unified consensus decision using the weighted scoring lookup.
+   * Calculate adaptive weights dynamically based on historical accuracy.
+   */
+  public static getAdaptiveWeights(symbol?: string): Record<string, number> {
+    const DEFAULT_WEIGHTS = this.DEFAULT_WEIGHTS;
+    
+    try {
+      // Step 1: Get symbol-specific predictions (last 50)
+      let rows: any[] = [];
+      
+      if (symbol) {
+        try {
+          rows = db.prepare(`
+            SELECT 
+              smc_signal, technical_signal, 
+              sentiment_signal, macro_signal,
+              signal as final_signal, outcome,
+              market_regime
+            FROM accuracy_logs
+            WHERE symbol = ? 
+            AND outcome IN ('WIN', 'LOSS', 'NEUTRAL')
+            AND outcome IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 50
+          `).all(symbol) as any[];
+        } catch (dbErr) {
+          console.warn('[AdaptiveWeights] Symbol query failed, using global only:', dbErr);
+        }
+      }
+      
+      // Step 2: If < 5 symbol records, blend with global
+      let globalRows: any[] = [];
+      if (rows.length < 5) {
+        try {
+          globalRows = db.prepare(`
+            SELECT 
+              smc_signal, technical_signal,
+              sentiment_signal, macro_signal,
+              signal as final_signal, outcome,
+              market_regime
+            FROM accuracy_logs
+            WHERE outcome IN ('WIN', 'LOSS', 'NEUTRAL')
+            AND outcome IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 100
+          `).all() as any[];
+        } catch (dbErr) {
+          console.warn('[AdaptiveWeights] Global query failed:', dbErr);
+        }
+      }
+      
+      // Step 3: Blend — 70% symbol + 30% global
+      // If no symbol data, use 100% global
+      const blendedRows = rows.length >= 5
+        ? [...rows, ...globalRows.slice(0, Math.floor(globalRows.length * 0.3))]
+        : globalRows;
+      
+      if (blendedRows.length < 5) {
+        console.log('[AdaptiveWeights] Insufficient data, using defaults');
+        return DEFAULT_WEIGHTS;
+      }
+      
+      // Step 4: Calculate accuracy per agent
+      // with sample-size confidence adjustment
+      function calcAgentAccuracy(
+        agentSignalKey: string, 
+        rowsList: any[]
+      ): { accuracy: number; sampleSize: number } {
+        const relevant = rowsList.filter(r => r[agentSignalKey] !== null && r[agentSignalKey] !== undefined);
+        if (relevant.length === 0) return { accuracy: 0.5, sampleSize: 0 };
+        
+        const correct = relevant.filter(r => {
+          const agentSignal = r[agentSignalKey];
+          const outcome = r.outcome;
+          
+          // Agent was bullish and outcome was WIN
+          if (['BULLISH', 'BUY', 'STRONG_BUY'].includes(agentSignal) 
+              && outcome === 'WIN') return true;
+          // Agent was bearish and outcome was WIN (price fell)
+          if (['BEARISH', 'SELL', 'STRONG_SELL'].includes(agentSignal) 
+              && outcome === 'WIN') return true;
+          // Agent was neutral and outcome was NEUTRAL
+          if (['NEUTRAL', 'HOLD'].includes(agentSignal) 
+              && outcome === 'NEUTRAL') return true;
+          return false;
+        });
+        
+        return {
+          accuracy: correct.length / relevant.length,
+          sampleSize: relevant.length
+        };
+      }
+      
+      const agents = {
+        smc: calcAgentAccuracy('smc_signal', blendedRows),
+        technical: calcAgentAccuracy('technical_signal', blendedRows),
+        sentiment: calcAgentAccuracy('sentiment_signal', blendedRows),
+        macro: calcAgentAccuracy('macro_signal', blendedRows),
+      };
+      
+      // Step 5: Sample-size confidence adjustment
+      // (prevents small sample overfitting)
+      function adjustedAccuracy(
+        accuracy: number, 
+        sampleSize: number
+      ): number {
+        const confidenceFactor = Math.min(1, sampleSize / 30);
+        return (accuracy * confidenceFactor) + (0.5 * (1 - confidenceFactor));
+      }
+      
+      // Step 6: Calculate dynamic weights
+      const rawWeights = {
+        smc: DEFAULT_WEIGHTS.smc * Math.max(0.1, 
+          1.0 + (adjustedAccuracy(agents.smc.accuracy, agents.smc.sampleSize) - 0.5) * 2.0),
+        technical: DEFAULT_WEIGHTS.technical * Math.max(0.1,
+          1.0 + (adjustedAccuracy(agents.technical.accuracy, agents.technical.sampleSize) - 0.5) * 2.0),
+        sentiment: DEFAULT_WEIGHTS.sentiment * Math.max(0.1,
+          1.0 + (adjustedAccuracy(agents.sentiment.accuracy, agents.sentiment.sampleSize) - 0.5) * 2.0),
+        macro: DEFAULT_WEIGHTS.macro * Math.max(0.1,
+          1.0 + (adjustedAccuracy(agents.macro.accuracy, agents.macro.sampleSize) - 0.5) * 2.0),
+      };
+      
+      // Step 7: Normalize to sum = 1.0
+      const total = Object.values(rawWeights).reduce((a, b) => a + b, 0);
+      const normalizedWeights = {
+        smc: rawWeights.smc / total,
+        technical: rawWeights.technical / total,
+        sentiment: rawWeights.sentiment / total,
+        macro: rawWeights.macro / total,
+      };
+      
+      console.log('[AdaptiveWeights] Symbol:', symbol || 'global');
+      console.log('[AdaptiveWeights] Sample sizes:', {
+        smc: agents.smc.sampleSize,
+        technical: agents.technical.sampleSize,
+        sentiment: agents.sentiment.sampleSize,
+        macro: agents.macro.sampleSize,
+      });
+      console.log('[AdaptiveWeights] Final weights:', normalizedWeights);
+      
+      return normalizedWeights;
+      
+    } catch (e) {
+      console.error('[AdaptiveWeights] Error, using defaults:', e);
+      return DEFAULT_WEIGHTS;
+    }
+  }
+
+  /**
+   * Reconcile multiple agent signals into one unified consensus decision using adaptive self-healing weights.
    */
   public static calculateConsensus(
-    inputs: Array<{
-      agent: 'technical' | 'smc' | 'macro' | 'sentiment' | 'news';
-      signal: string;
-      confidence: number;
-    }>
+    inputs: AgentInput[],
+    symbol?: string
   ): ConsensusResult {
+    // Get adaptive weights (falls back to default if insufficient data)
+    const weights = this.getAdaptiveWeights(symbol);
+    
+    console.log('[Consensus] Using weights for', symbol || 'unknown', ':', weights);
+
     // 1. Process and normalize signals
     const signals: AgentSignal[] = [];
     let totalWeightUsed = 0;
@@ -68,7 +226,7 @@ export class WeightedConsensusEngine {
 
       // Map dynamic weight
       const weightKey = input.agent === 'news' ? 'sentiment' : input.agent;
-      const weight = this.DEFAULT_WEIGHTS[weightKey] ?? 0.1;
+      const weight = weights[weightKey] ?? 0.1;
       totalWeightUsed += weight;
 
       signals.push({
@@ -98,11 +256,6 @@ export class WeightedConsensusEngine {
     consensusScore = parseFloat(consensusScore.toFixed(3));
 
     // 4. Map consensusScore to Final Signal based on specified boundary thresholds:
-    // - Score > 0.8           -> STRONG BUY
-    // - Score  0.3 to 0.8     -> BUY
-    // - Score -0.3 to 0.3     -> HOLD
-    // - Score -0.8 to -0.3    -> SELL
-    // - Score < -0.8          -> STRONG SELL
     let finalSignal: ConsensusResult['finalSignal'] = 'HOLD';
     if (consensusScore > 0.8) {
       finalSignal = 'STRONG_BUY';
@@ -116,7 +269,7 @@ export class WeightedConsensusEngine {
       finalSignal = 'HOLD';
     }
 
-    // 5. Conflict detection: Check if major agents contradict directly (i.e. Buy/Strong Buy vs Sell/Strong Sell)
+    // 5. Conflict detection: Check if major agents contradict directly
     let conflictDetected = false;
     let conflictReason: string | undefined;
 

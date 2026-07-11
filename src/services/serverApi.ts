@@ -218,6 +218,41 @@ for (const col of newAccuracyLogsColumns) {
   }
 }
 
+// One-time migration to fix existing records using corrected signal direction rules
+try {
+  const migrationResult = db.prepare(`
+    UPDATE accuracy_logs 
+    SET outcome = CASE
+      WHEN signal IN ('BUY', 'STRONG_BUY') AND 
+           (actual_price - entry_price) / entry_price > 0.02 
+           THEN 'WIN'
+      WHEN signal IN ('BUY', 'STRONG_BUY') AND 
+           (actual_price - entry_price) / entry_price < -0.02 
+           THEN 'LOSS'
+      WHEN signal IN ('SELL', 'STRONG_SELL') AND 
+           (actual_price - entry_price) / entry_price < -0.02 
+           THEN 'WIN'
+      WHEN signal IN ('SELL', 'STRONG_SELL') AND 
+           (actual_price - entry_price) / entry_price > 0.02 
+           THEN 'LOSS'
+      ELSE 'NEUTRAL'
+    END,
+    was_correct = CASE
+      WHEN (signal IN ('BUY', 'STRONG_BUY') AND (actual_price - entry_price) / entry_price > 0.02) OR
+           (signal IN ('SELL', 'STRONG_SELL') AND (actual_price - entry_price) / entry_price < -0.02)
+           THEN 1
+      ELSE 0
+    END
+    WHERE outcome IS NOT NULL 
+    AND actual_price IS NOT NULL 
+    AND entry_price IS NOT NULL
+  `).run();
+  console.log(`[DB Migration] Re-verified ${migrationResult.changes} historical accuracy_logs rows.`);
+} catch (e: any) {
+  console.warn("[DB Migration] Error during historical logs re-verification:", e.message);
+}
+
+
 // Check database seed for 20 preset assets
 try {
   const countRow = db.prepare("SELECT COUNT(*) as count FROM custom_assets").get() as any;
@@ -1492,6 +1527,8 @@ export function getAccuracyReport(): any {
     WHERE was_correct IS NULL
   `).get() as any;
   
+  const currentWeights = WeightedConsensusEngine.getAdaptiveWeights();
+
   // If no verified data yet — show honest message
   if (!overall || overall.total === 0) {
     return {
@@ -1502,7 +1539,12 @@ export function getAccuracyReport(): any {
       overall_accuracy: null,
       by_asset: {},
       by_agent: null,
-      recent_ledger: []
+      recent_ledger: [],
+      adaptive_weights: {
+        current: currentWeights,
+        data_points: 0,
+        last_updated: new Date().toISOString(),
+      }
     };
   }
   
@@ -1512,7 +1554,7 @@ export function getAccuracyReport(): any {
       COUNT(*) as total,
       SUM(CASE 
         WHEN (smc_signal = 'BULLISH' AND outcome = 'WIN') OR
-             (smc_signal = 'BEARISH' AND outcome = 'LOSS_AVOIDED')
+             (smc_signal = 'BEARISH' AND outcome = 'LOSS')
         THEN 1 ELSE 0 
       END) as correct
     FROM accuracy_logs 
@@ -1537,13 +1579,18 @@ export function getAccuracyReport(): any {
         total: smcAccuracy?.total || 0,
         correct: smcAccuracy?.correct || 0,
         accuracy: smcAccuracy?.total > 0 
-          ? smcAccuracy.correct / smcAccuracy.total 
+          ? Math.round((smcAccuracy.correct / smcAccuracy.total) * 100)
           : null
       }
     } : null,
     total_predictions: overall.total,
     period_days: 'All time (since launch)',
-    recent_ledger: recent_ledger
+    recent_ledger: recent_ledger,
+    adaptive_weights: {
+      current: currentWeights,
+      data_points: overall.total,
+      last_updated: new Date().toISOString(),
+    }
   };
 }
 
@@ -1574,17 +1621,23 @@ export async function verifyPendingPredictions() {
     }
     
     const actualPrice = priceRow.close;
-    const pnlPercent = ((actualPrice - pred.entry_price) / pred.entry_price) * 100;
+    const priceChange = (actualPrice - pred.entry_price) / pred.entry_price;
+    const pnlPercent = priceChange * 100;
     
-    // Was prediction correct?
-    let wasCorrect = 0;
-    if (pred.signal === 'BUY' && actualPrice > pred.entry_price) {
-      wasCorrect = 1;
-    } else if (pred.signal === 'SELL' && actualPrice < pred.entry_price) {
-      wasCorrect = 1;
+    let outcome: string;
+    if (pred.signal === 'BUY' || pred.signal === 'STRONG_BUY') {
+      if (priceChange > 0.02) outcome = 'WIN';
+      else if (priceChange < -0.02) outcome = 'LOSS';
+      else outcome = 'NEUTRAL';
+    } else if (pred.signal === 'SELL' || pred.signal === 'STRONG_SELL') {
+      if (priceChange < -0.02) outcome = 'WIN';
+      else if (priceChange > 0.02) outcome = 'LOSS';
+      else outcome = 'NEUTRAL';
+    } else {
+      outcome = 'NEUTRAL';
     }
     
-    const outcome = actualPrice > pred.entry_price ? 'WIN' : 'LOSS_AVOIDED';
+    const wasCorrect = outcome === 'WIN' ? 1 : 0;
     const verifiedAt = new Date().toISOString();
 
     // Update the log with real outcome
@@ -2256,7 +2309,7 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
     { agent: 'technical', signal: techSignal, confidence: techConfidence },
     { agent: 'sentiment', signal: sentimentSigMapped, confidence: sentimentConfidence },
     { agent: 'macro', signal: macroSignal, confidence: macro.confidence || 70 }
-  ]);
+  ], resolved);
 
   const final_signal = consensusResult.finalSignal === 'STRONG_BUY' ? 'BUY' : (consensusResult.finalSignal === 'STRONG_SELL' ? 'SELL' : consensusResult.finalSignal);
   
