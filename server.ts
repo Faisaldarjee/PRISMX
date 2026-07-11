@@ -39,7 +39,8 @@ import {
   getGeminiWeeklyReportPlan,
   runHistoricalBacktest,
   getSwingScannerSetups,
-  verifyPendingPredictions
+  verifyPendingPredictions,
+  seedSmallcap100
 } from './src/services/serverApi';
 import { fetchCandles } from './src/services/candleService';
 import { getAllSectorStrengths, getTopStocksFromSector, SECTORS, getSectorForSymbol } from './src/services/sectorIntelligence';
@@ -1192,6 +1193,9 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 PRISM server fully integrated. Root accessible on http://localhost:${PORT}`);
+
+    // Background: seed Nifty Smallcap 100 stocks with ADTV filter (first boot only)
+    seedSmallcap100().catch(e => console.error('[boot] Smallcap seed error:', e.message));
   });
 }
 
