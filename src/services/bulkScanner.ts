@@ -261,7 +261,6 @@ export async function scanNifty500ForSwingSetups(): Promise<SwingSetup[]> {
   }
 
   isScanningActive = true;
-  console.log(`[bulkScanner] starting full Nifty 500 swing scan of ${NIFTY_500_SYMBOLS.length} securities...`);
 
   // 1. Pre-calculate sector index 20-day returns to save DB queries
   const sector20DReturns = new Map<string, number>();
@@ -281,6 +280,18 @@ export async function scanNifty500ForSwingSetups(): Promise<SwingSetup[]> {
       sector20DReturns.set(sectorKey, 0);
     }
   }
+
+  // Get custom assets that are stocks or ETFs to include in the scan
+  let customSymbols: string[] = [];
+  try {
+    const rows = db.prepare("SELECT symbol FROM custom_assets WHERE type IN ('STOCK', 'ETF')").all() as any[];
+    customSymbols = rows.map(r => r.symbol);
+  } catch (e) {
+    console.error('[bulkScanner] Failed to fetch custom symbols:', e);
+  }
+
+  // Merge and de-duplicate symbols to create the final scan universe
+  const scanUniverse = Array.from(new Set([...NIFTY_500_SYMBOLS, ...customSymbols]));
 
   const results: {
     symbol: string;
@@ -303,14 +314,16 @@ export async function scanNifty500ForSwingSetups(): Promise<SwingSetup[]> {
   }[] = [];
 
   const batchSize = 50;
-  const total = NIFTY_500_SYMBOLS.length;
+  const total = scanUniverse.length;
+
+  console.log(`[bulkScanner] starting full swing scan of ${total} securities...`);
 
   for (let i = 0; i < total; i += batchSize) {
     const currentBatchNum = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(total / batchSize);
     console.log(`[bulkScanner] Scanning batch ${currentBatchNum}/${totalBatches}...`);
 
-    const batchSymbols = NIFTY_500_SYMBOLS.slice(i, i + batchSize);
+    const batchSymbols = scanUniverse.slice(i, i + batchSize);
 
     // Process securities in parallel within the current batch to be highly performant
     const batchPromises = batchSymbols.map(async (symbol) => {
