@@ -23,7 +23,6 @@ import { getNSEQuote, getMultipleQuotes } from './nseQuotes';
 import { detectPatterns } from './patternDetector';
 import { WeightedConsensusEngine } from './WeightedConsensusEngine';
 import { scoreWithFinBERT } from './finbertService';
-import { SMALLCAP_100_STOCKS } from '../data/smallcapStocks';
 import { db } from './database';
 export { db };
 
@@ -312,96 +311,25 @@ try {
   console.error("[database] Seeding presets failed:", e.message);
 }
 
-// ---------------------------------------------------------------------------
-// ADTV (Average Daily Traded Value) filter — prevents illiquid trap stocks
-// ---------------------------------------------------------------------------
-async function checkADTV(symbol: string): Promise<boolean> {
-  try {
-    const prices = await getPricesHistory(symbol, 30);
-    if (prices.length < 20) return false;
-
-    // Calculate average daily traded value over last 20 trading days
-    const adtv = prices.slice(-20).reduce((sum: number, p: any) => {
-      return sum + (p.close * (p.volume || 0));
-    }, 0) / 20;
-
-    // Minimum ₹5 Crore ADTV (50,000,000)
-    const MIN_ADTV = 50_000_000;
-    console.log(`[ADTV] ${symbol}: ₹${(adtv / 10_000_000).toFixed(2)}Cr ${adtv >= MIN_ADTV ? '✅' : '❌ SKIP'}`);
-    return adtv >= MIN_ADTV;
-  } catch {
-    return false;
+// Clean up any extra presets (e.g. Nifty Smallcap 100 stocks that were seeded)
+try {
+  const allowedPresets = [
+    'SILVERBEES.NS', 'GOLDBEES.NS', 'RELIANCE.NS', 'HDFCBANK.NS', 'TATAMOTORS.NS',
+    'TCS.NS', 'INFY.NS', 'TITAN.NS', 'HINDZINC.NS', 'VEDL.NS', 'MUTHOOTFIN.NS',
+    'MANAPPURAM.NS', 'WAAREEENER.NS', 'GC=F', 'SI=F', 'DX-Y.NYB', '^TNX', 'INR=X',
+    '^NSEI', '^INDIAVIX'
+  ];
+  const placeholders = allowedPresets.map(() => '?').join(',');
+  const result = db.prepare(`
+    DELETE FROM custom_assets 
+    WHERE is_preset = 1 
+    AND symbol NOT IN (${placeholders})
+  `).run(...allowedPresets);
+  if (result.changes > 0) {
+    console.log(`[database] Cleaned up ${result.changes} extra seeded preset assets from custom_assets.`);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Smallcap 100 seed — imports stocks with ADTV filter on first boot
-// Runs async in background so it doesn't block server startup
-// ---------------------------------------------------------------------------
-export async function seedSmallcap100(): Promise<void> {
-  try {
-    // Check if smallcap seeding was already done (use a marker row)
-    const marker = db.prepare(
-      "SELECT 1 FROM custom_assets WHERE symbol = '__SMALLCAP_SEEDED__'"
-    ).get();
-    if (marker) {
-      console.log("[smallcap] Smallcap 100 already seeded, skipping.");
-      return;
-    }
-
-    console.log(`[smallcap] Starting Nifty Smallcap 100 import (${SMALLCAP_100_STOCKS.length} candidates)...`);
-
-    const insertStmt = db.prepare(
-      "INSERT OR IGNORE INTO custom_assets (symbol, name, type, is_preset) VALUES (?, ?, 'STOCK', 1)"
-    );
-
-    let imported = 0;
-    let skipped = 0;
-
-    // Process in batches of 5 to avoid rate limiting
-    const batchSize = 5;
-    for (let i = 0; i < SMALLCAP_100_STOCKS.length; i += batchSize) {
-      const batch = SMALLCAP_100_STOCKS.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(async (stock) => {
-          // Skip if already exists in custom_assets
-          const existing = db.prepare(
-            "SELECT 1 FROM custom_assets WHERE symbol = ?"
-          ).get(stock.symbol);
-          if (existing) {
-            skipped++;
-            return;
-          }
-
-          const passesADTV = await checkADTV(stock.symbol);
-          if (passesADTV) {
-            insertStmt.run(stock.symbol, stock.name);
-            imported++;
-          } else {
-            skipped++;
-          }
-        })
-      );
-
-      // Log progress every batch
-      const processed = Math.min(i + batchSize, SMALLCAP_100_STOCKS.length);
-      console.log(`[smallcap] Progress: ${processed}/${SMALLCAP_100_STOCKS.length} checked (${imported} imported, ${skipped} skipped)`);
-
-      // Small delay between batches to respect rate limits
-      if (i + batchSize < SMALLCAP_100_STOCKS.length) {
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    }
-
-    // Insert marker so we don't re-run on next boot
-    db.prepare(
-      "INSERT OR IGNORE INTO custom_assets (symbol, name, type, is_preset) VALUES ('__SMALLCAP_SEEDED__', 'Smallcap Seed Marker', 'MARKER', 1)"
-    ).run();
-
-    console.log(`[smallcap] ✅ Smallcap 100 seeding complete: ${imported} imported, ${skipped} skipped/filtered`);
-  } catch (e: any) {
-    console.error("[smallcap] Seeding failed:", e.message);
-  }
+} catch (e: any) {
+  console.error("[database] Cleanup presets failed:", e.message);
 }
 
 export function addTradingDays(date: Date, days: number): Date {
