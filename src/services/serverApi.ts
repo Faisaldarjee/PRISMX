@@ -169,7 +169,24 @@ db.exec(`
     interested_symbols TEXT,
     notification_prefs TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS delivery_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    date TEXT NOT NULL,
+    delivery_qty REAL DEFAULT 0,
+    delivery_pct REAL DEFAULT 0,
+    traded_qty REAL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(symbol, date)
+  );
 `);
+
+// Index for fast symbol lookups
+db.prepare(`
+  CREATE INDEX IF NOT EXISTS idx_delivery_symbol_date 
+  ON delivery_data(symbol, date)
+`).run();
 
 // Self-healing migration to add 'is_preset' column if it does not exist
 try {
@@ -1298,6 +1315,100 @@ export async function compileMacroReport(): Promise<any> {
   return report;
 }
 
+export function getDeliveryAnalysis(symbol: string, days: number = 20): {
+  avgDeliveryPct: number;
+  recentDeliveryPct: number;
+  trend: 'INCREASING' | 'DECREASING' | 'STABLE';
+  signal: 'STRONG_ACCUMULATION' | 'ACCUMULATION' | 'NEUTRAL' | 'DISTRIBUTION' | 'STRONG_DISTRIBUTION';
+  dataPoints: number;
+} {
+  try {
+    const rows = db.prepare(`
+      SELECT delivery_pct, date 
+      FROM delivery_data 
+      WHERE symbol = ? 
+      AND delivery_pct > 0
+      ORDER BY date DESC 
+      LIMIT ?
+    `).all(symbol, days) as any[];
+    
+    if (rows.length < 3) {
+      return {
+        avgDeliveryPct: 0,
+        recentDeliveryPct: 0,
+        trend: 'STABLE',
+        signal: 'NEUTRAL',
+        dataPoints: 0
+      };
+    }
+    
+    // Average delivery % over last N days
+    const avgDeliveryPct = rows.reduce((sum, r) => 
+      sum + r.delivery_pct, 0) / rows.length;
+    
+    // Recent 5 days average
+    const recentRows = rows.slice(0, 5);
+    const recentDeliveryPct = recentRows.reduce((sum, r) => 
+      sum + r.delivery_pct, 0) / recentRows.length;
+    
+    // Older 5 days average for trend
+    const olderRows = rows.slice(5, 10);
+    const olderDeliveryPct = olderRows.length > 0 
+      ? olderRows.reduce((sum, r) => sum + r.delivery_pct, 0) / olderRows.length
+      : avgDeliveryPct;
+    
+    // Trend detection
+    const trend = recentDeliveryPct > olderDeliveryPct + 5 
+      ? 'INCREASING'
+      : recentDeliveryPct < olderDeliveryPct - 5
+        ? 'DECREASING'
+        : 'STABLE';
+    
+    // Signal classification
+    let signal: string;
+    if (recentDeliveryPct >= 60) {
+      signal = 'STRONG_ACCUMULATION';   // >60% delivery = institutional buying
+    } else if (recentDeliveryPct >= 45) {
+      signal = 'ACCUMULATION';           // 45-60% = healthy buying
+    } else if (recentDeliveryPct >= 30) {
+      signal = 'NEUTRAL';                // 30-45% = normal
+    } else if (recentDeliveryPct >= 15) {
+      signal = 'DISTRIBUTION';           // 15-30% = mostly intraday
+    } else {
+      signal = 'STRONG_DISTRIBUTION';    // <15% = speculative/weak
+    }
+    
+    return {
+      avgDeliveryPct: Math.round(avgDeliveryPct * 10) / 10,
+      recentDeliveryPct: Math.round(recentDeliveryPct * 10) / 10,
+      trend: trend as any,
+      signal: signal as any,
+      dataPoints: rows.length
+    };
+    
+  } catch (e) {
+    console.error('[DeliveryAnalysis] Error:', e);
+    return {
+      avgDeliveryPct: 0,
+      recentDeliveryPct: 0,
+      trend: 'STABLE',
+      signal: 'NEUTRAL',
+      dataPoints: 0
+    };
+  }
+}
+
+function getDeliveryInterpretation(signal: string): string {
+  const interpretations: Record<string, string> = {
+    'STRONG_ACCUMULATION': 'Institutional buying detected — strong delivery volume confirms genuine demand',
+    'ACCUMULATION': 'Healthy delivery volume — genuine buying interest present',
+    'NEUTRAL': 'Normal delivery levels — no strong institutional signal',
+    'DISTRIBUTION': 'Low delivery volume — mostly intraday trading, weak conviction',
+    'STRONG_DISTRIBUTION': 'Very low delivery — speculative activity, avoid or exit',
+  };
+  return interpretations[signal] || 'Insufficient delivery data';
+}
+
 // GET /api/sentiment/{symbol}
 export async function getSentimentAnalysis(symbol: string): Promise<any> {
   const resolved = resolveSymbol(symbol);
@@ -2145,6 +2256,14 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
   console.log('[compilePrediction] Got', prices.length, 'prices for', resolved);
   const lastPrice = prices[prices.length - 1]?.close || 1500;
 
+  // After fetching prices, add delivery analysis
+  const deliveryAnalysis = getDeliveryAnalysis(resolved, 20);
+
+  console.log(`[Prediction] Delivery signal for ${resolved}:`, 
+    deliveryAnalysis.signal, 
+    `(${deliveryAnalysis.recentDeliveryPct}%)`
+  );
+
   let technicals: any;
   try {
     technicals = TechnicalAgent.analyze(prices);
@@ -2493,6 +2612,14 @@ export async function compilePrediction(symbol: string, forceRefresh = false): P
       target_2: target_2,
       risk_reward_ratio: rr_ratio,
       action: final_signal
+    },
+    delivery: {
+      avgPct: deliveryAnalysis.avgDeliveryPct,
+      recentPct: deliveryAnalysis.recentDeliveryPct,
+      trend: deliveryAnalysis.trend,
+      signal: deliveryAnalysis.signal,
+      interpretation: getDeliveryInterpretation(deliveryAnalysis.signal),
+      dataPoints: deliveryAnalysis.dataPoints
     },
     consensus: {
       finalSignal: consensusResult.finalSignal,

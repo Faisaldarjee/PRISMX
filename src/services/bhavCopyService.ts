@@ -19,7 +19,7 @@ function isWeekday(date: Date): boolean {
 }
 
 // Get last N trading days (skip weekends)
-function getLastTradingDays(n: number): Date[] {
+export function getLastTradingDays(n: number): Date[] {
   const dates: Date[] = [];
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -230,4 +230,172 @@ export function isTodayIngested(): boolean {
      WHERE date = ? AND is_synthetic = 0 LIMIT 1`
   ).get(today) as any;
   return row?.count > 0;
+}
+
+// Download NSE delivery data for a given date
+export async function downloadDeliveryData(date: Date): Promise<any[]> {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const dateStr = `${day}${month}${year}`;
+  
+  const url = `https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_${dateStr}.csv`;
+  
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Referer': 'https://www.nseindia.com/'
+      },
+      timeout: 30000
+    }, (res) => {
+      if (res.statusCode === 404) {
+        resolve([]); // Holiday or weekend
+        return;
+      }
+      if (res.statusCode !== 200) {
+        reject(new Error(`NSE delivery data returned ${res.statusCode} for ${dateStr}`));
+        return;
+      }
+      
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        try {
+          const csvText = Buffer.concat(chunks).toString('utf-8');
+          const rows = parseDeliveryCsv(csvText);
+          resolve(rows);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('NSE delivery data download timed out'));
+    });
+  });
+}
+
+// Parse delivery CSV
+function parseDeliveryCsv(csvText: string): any[] {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) return [];
+  
+  // Get headers from first line
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  
+  const rows: any[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''));
+    if (cols.length < 5) continue;
+    
+    // Find relevant columns dynamically
+    const symbolIdx = headers.findIndex(h => 
+      h.includes('SYMBOL') || h.includes('Symbol'));
+    const seriesIdx = headers.findIndex(h => 
+      h.includes('SERIES') || h.includes('Series'));
+    const delivQtyIdx = headers.findIndex(h => 
+      h.includes('DELIV_QTY') || h.includes('Deliverable'));
+    const delivPctIdx = headers.findIndex(h => 
+      h.includes('DELIV_PER') || h.includes('% Deli'));
+    const tradedQtyIdx = headers.findIndex(h => 
+      h.includes('TTL_TRD_QNTY') || h.includes('Total'));
+    
+    if (symbolIdx === -1) continue;
+    
+    const series = seriesIdx !== -1 ? cols[seriesIdx] : 'EQ';
+    if (series !== 'EQ') continue;
+    
+    const symbol = cols[symbolIdx];
+    if (!symbol) continue;
+    
+    const delivQty = delivQtyIdx !== -1 ? 
+      parseFloat(cols[delivQtyIdx]) || 0 : 0;
+    const delivPct = delivPctIdx !== -1 ? 
+      parseFloat(cols[delivPctIdx]) || 0 : 0;
+    const tradedQty = tradedQtyIdx !== -1 ? 
+      parseFloat(cols[tradedQtyIdx]) || 0 : 0;
+    
+    rows.push({
+      symbol: symbol + '.NS',
+      delivery_qty: delivQty,
+      delivery_pct: delivPct,
+      traded_qty: tradedQty,
+    });
+  }
+  
+  return rows;
+}
+
+// Insert delivery data into SQLite
+export function insertDeliveryData(
+  rows: any[], 
+  date: string
+): number {
+  if (rows.length === 0) return 0;
+  
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO delivery_data
+    (symbol, date, delivery_qty, delivery_pct, traded_qty)
+    VALUES (@symbol, @date, @delivery_qty, @delivery_pct, @traded_qty)
+  `);
+  
+  const insertMany = db.transaction((items: any[]) => {
+    for (const row of items) {
+      insert.run({
+        symbol: row.symbol,
+        date: date,
+        delivery_qty: row.delivery_qty,
+        delivery_pct: row.delivery_pct,
+        traded_qty: row.traded_qty
+      });
+    }
+  });
+  
+  insertMany(rows);
+  return rows.length;
+}
+
+// Main function — ingest both bhavcopy + delivery for a day
+export async function ingestFullDayData(date: Date): Promise<{
+  bhavcopy: number;
+  delivery: number;
+  status: string;
+}> {
+  const dateStr = date.toISOString().split('T')[0];
+  
+  try {
+    // Run both in parallel
+    const [bhavRows, delivRows] = await Promise.all([
+      downloadBhavcopy(date).catch((err) => {
+        console.warn(`[FullDayIngest] downloadBhavcopy warning:`, err.message);
+        return [];
+      }),
+      downloadDeliveryData(date).catch((err) => {
+        console.warn(`[FullDayIngest] downloadDeliveryData warning:`, err.message);
+        return [];
+      })
+    ]);
+    
+    const bhavCount = bhavRows.length > 0 ? 
+      insertBhavcopPrices(bhavRows) : 0;
+    const delivCount = delivRows.length > 0 ? 
+      insertDeliveryData(delivRows, dateStr) : 0;
+    
+    console.log(`[FullDayIngest] ${dateStr}: Bhavcopy=${bhavCount}, Delivery=${delivCount}`);
+    
+    return { 
+      bhavcopy: bhavCount, 
+      delivery: delivCount,
+      status: 'success'
+    };
+  } catch (e: any) {
+    console.error(`[FullDayIngest] Error for ${dateStr}:`, e.message);
+    return { bhavcopy: 0, delivery: 0, status: 'error' };
+  }
 }

@@ -135,22 +135,22 @@ async function startServer() {
     timezone: 'Asia/Kolkata'
   });
 
-  // Daily NSE Bhavcopy ingestion — 6:30 PM IST (13:00 UTC)
+  // Daily data ingestion — 6:30 PM IST
   cron.schedule('30 18 * * 1-5', async () => {
-    console.log('[Cron] Starting daily NSE Bhavcopy ingestion...');
+    console.log('[Cron] Starting daily full data ingestion...');
     try {
-      const { ingestBhavcopDay, isTodayIngested } = 
+      const { ingestFullDayData, isTodayIngested } = 
         await import('./src/services/bhavCopyService');
       
       if (isTodayIngested()) {
-        console.log('[Cron] Today bhavcopy already ingested, skipping.');
+        console.log('[Cron] Today data already ingested, skipping.');
         return;
       }
       
-      const result = await ingestBhavcopDay(new Date());
-      console.log('[Cron] Bhavcopy ingestion result:', result);
+      const result = await ingestFullDayData(new Date());
+      console.log('[Cron] Full day ingestion result:', result);
     } catch (e) {
-      console.error('[Cron] Bhavcopy ingestion failed:', e);
+      console.error('[Cron] Daily ingestion failed:', e);
     }
   }, {
     timezone: 'Asia/Kolkata'
@@ -350,6 +350,43 @@ async function startServer() {
       res.json({ 
         success: true, 
         message: `Backfill started for last ${days} trading days. Running in background.`
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Backfill delivery data for last N days
+  app.post('/api/admin/backfill-delivery', checkAdminKey, async (req, res) => {
+    const days = parseInt(req.query.days as string) || 30;
+    try {
+      const { getLastTradingDays, downloadDeliveryData, insertDeliveryData } = 
+        await import('./src/services/bhavCopyService');
+      
+      // Run in background
+      (async () => {
+        const tradingDays = getLastTradingDays(days);
+        let success = 0, errors = 0;
+        
+        for (const day of tradingDays) {
+          try {
+            const rows = await downloadDeliveryData(day);
+            if (rows.length > 0) {
+              const dateStr = day.toISOString().split('T')[0];
+              insertDeliveryData(rows, dateStr);
+              success++;
+            }
+            await new Promise(r => setTimeout(r, 500));
+          } catch (e) {
+            errors++;
+          }
+        }
+        console.log(`[DeliveryBackfill] Complete: ${success} days, ${errors} errors`);
+      })();
+      
+      res.json({ 
+        success: true, 
+        message: `Delivery backfill started for last ${days} trading days.`
       });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
@@ -866,7 +903,15 @@ async function startServer() {
       
       const { analyzeSMC } = await import('./src/services/smcAnalysis');
       const smcResult = analyzeSMC(candles.slice(-200));
-      res.json(smcResult);
+      
+      // Add delivery analysis to SMC response
+      const { getDeliveryAnalysis } = await import('./src/services/serverApi');
+      const delivery = getDeliveryAnalysis(symbol, 20);
+      
+      res.json({
+        ...smcResult,
+        delivery
+      });
     } catch (err: any) {
       console.error('[SMC]', err);
       res.status(500).json({ error: 'SMC analysis failed', detail: err.message });
