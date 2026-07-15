@@ -412,6 +412,77 @@ async function startServer() {
       res.status(500).json({ success: false, error: e.message });
     }
   });
+
+  // List all payment requests
+  app.get('/api/admin/payments', checkAdminKey, async (req, res) => {
+    try {
+      const { supabaseAdmin } = await import('./src/services/supabaseAdmin');
+      const { data, error } = await supabaseAdmin
+        .from('payment_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Approve or reject a payment request
+  app.post('/api/admin/payments/action', checkAdminKey, async (req, res) => {
+    const { requestId, action } = req.body;
+    if (!requestId || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ error: 'Valid requestId and action (approve/reject) are required.' });
+    }
+
+    try {
+      const { supabaseAdmin } = await import('./src/services/supabaseAdmin');
+
+      // Fetch the request
+      const { data: request, error: fetchErr } = await supabaseAdmin
+        .from('payment_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (fetchErr || !request) {
+        return res.status(404).json({ error: 'Payment request not found.' });
+      }
+
+      const status = action === 'approve' ? 'approved' : 'rejected';
+
+      // Update the request status
+      const { error: updateErr } = await supabaseAdmin
+        .from('payment_requests')
+        .update({ status })
+        .eq('id', requestId);
+
+      if (updateErr) throw updateErr;
+
+      // If approved, upgrade user's profile
+      if (action === 'approve') {
+        const proEndDate = new Date();
+        proEndDate.setDate(proEndDate.getDate() + 30); // 30 days premium
+
+        const { error: profileErr } = await supabaseAdmin
+          .from('user_profiles')
+          .update({
+            is_pro: true,
+            plan: 'pro_paid',
+            pro_end_date: proEndDate.toISOString()
+          })
+          .eq('id', request.user_id);
+
+        if (profileErr) throw profileErr;
+      }
+
+      res.json({ success: true, message: `Payment request successfully ${status}.` });
+    } catch (e: any) {
+      console.error('[Admin Payments] Action error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
   // Gemini API Quota endpoint
   app.get('/api/gemini/quota', (req, res) => {
     res.json({
@@ -464,6 +535,184 @@ async function startServer() {
     } catch (err: any) {
       console.error('[Sync API] Profile sync error:', err.message);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/user/submit-payment', checkAuth, async (req: any, res: any) => {
+    try {
+      const { utr, amount } = req.body;
+      const user_id = req.user.uid;
+      const email = req.user.email;
+
+      if (!utr || !/^\d{12}$/.test(utr.trim())) {
+        return res.status(400).json({ error: 'Please enter a valid 12-digit UPI UTR number.' });
+      }
+
+      const cleanUtr = utr.trim();
+      const { supabaseAdmin } = await import('./src/services/supabaseAdmin');
+
+      // Check if UTR already exists in payment_requests to prevent duplicates
+      const { data: existing } = await supabaseAdmin
+        .from('payment_requests')
+        .select('id, status')
+        .eq('utr', cleanUtr)
+        .maybeSingle();
+
+      if (existing) {
+        return res.status(400).json({ 
+          error: `This Transaction Reference (UTR) has already been submitted and is currently ${existing.status}.` 
+        });
+      }
+
+      // Check if this UTR has already been received and verified from the Gmail webhook
+      const { data: verifiedBankUtr } = await supabaseAdmin
+        .from('verified_bank_utrs')
+        .select('utr')
+        .eq('utr', cleanUtr)
+        .maybeSingle();
+
+      if (verifiedBankUtr) {
+        // Instant approval! The bank email has already arrived and verified this UTR.
+        const proEndDate = new Date();
+        proEndDate.setDate(proEndDate.getDate() + 30); // 30 days premium
+
+        // Insert as approved request
+        await supabaseAdmin
+          .from('payment_requests')
+          .insert({
+            user_id,
+            email,
+            utr: cleanUtr,
+            amount: amount || 199,
+            status: 'approved'
+          });
+
+        // Upgrade user profile
+        const { error: profileErr } = await supabaseAdmin
+          .from('user_profiles')
+          .update({
+            is_pro: true,
+            plan: 'pro_paid',
+            pro_end_date: proEndDate.toISOString()
+          })
+          .eq('id', user_id);
+
+        if (profileErr) throw profileErr;
+
+        return res.json({ 
+          status: 'success', 
+          approved: true, 
+          message: 'Payment verified instantly! Your PRISMX PRO features have been unlocked.' 
+        });
+      }
+
+      // Otherwise, insert as pending request
+      const { error: insertError } = await supabaseAdmin
+        .from('payment_requests')
+        .insert({
+          user_id,
+          email,
+          utr: cleanUtr,
+          amount: amount || 199,
+          status: 'pending'
+        });
+
+      if (insertError) {
+        console.error('[Payment API] DB insert error:', insertError);
+        return res.status(500).json({ 
+          error: 'Database error. Make sure the public.payment_requests table is created in Supabase.',
+          detail: insertError.message 
+        });
+      }
+
+      res.json({ 
+        status: 'success', 
+        approved: false, 
+        message: 'Payment reference submitted. We will verify and activate your PRO access shortly.' 
+      });
+    } catch (err: any) {
+      console.error('[Payment API] Submission error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Webhook for auto-verifying UPI payments via Gmail/Email Parser
+  app.post('/api/payments/auto-verify-email', async (req, res) => {
+    try {
+      const { utr, amount, secret } = req.body;
+      const expectedSecret = process.env.PAYMENT_WEBHOOK_SECRET || 'PrismxPaymentSec2026#';
+
+      if (!secret || secret !== expectedSecret) {
+        return res.status(401).json({ error: 'Unauthorized webhook access.' });
+      }
+
+      if (!utr || !/^\d{12}$/.test(utr.trim())) {
+        return res.status(400).json({ error: 'Invalid UTR format.' });
+      }
+
+      const cleanUtr = utr.trim();
+      const parsedAmount = amount ? Number(amount) : 199;
+      const { supabaseAdmin } = await import('./src/services/supabaseAdmin');
+
+      // 1. Insert into verified_bank_utrs (to cache the verification in case the email arrived first)
+      const { error: cacheErr } = await supabaseAdmin
+        .from('verified_bank_utrs')
+        .insert({
+          utr: cleanUtr,
+          amount: parsedAmount
+        });
+
+      if (cacheErr && cacheErr.code !== '23505') { // Ignore unique constraint violation (duplicate webhook trigger)
+        console.error('[AutoVerify] Error saving UTR cache:', cacheErr);
+      }
+
+      // 2. Find pending request with this UTR
+      const { data: request } = await supabaseAdmin
+        .from('payment_requests')
+        .select('*')
+        .eq('utr', cleanUtr)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (!request) {
+        console.log(`[AutoVerify] UTR ${cleanUtr} saved in cache. No pending user request found yet.`);
+        return res.json({ 
+          success: true, 
+          action: 'cached', 
+          message: 'UTR saved to cache. Waiting for user submission.' 
+        });
+      }
+
+      // 3. Auto-approve the pending request
+      await supabaseAdmin
+        .from('payment_requests')
+        .update({ status: 'approved' })
+        .eq('id', request.id);
+
+      // Upgrade user profile
+      const proEndDate = new Date();
+      proEndDate.setDate(proEndDate.getDate() + 30); // 30 days premium
+
+      const { error: profileErr } = await supabaseAdmin
+        .from('user_profiles')
+        .update({
+          is_pro: true,
+          plan: 'pro_paid',
+          pro_end_date: proEndDate.toISOString()
+        })
+        .eq('id', request.user_id);
+
+      if (profileErr) throw profileErr;
+
+      console.log(`[AutoVerify] Successfully verified and approved payment for ${request.email} with UTR ${cleanUtr}.`);
+      res.json({ 
+        success: true, 
+        action: 'approved', 
+        message: `Successfully approved request for ${request.email}` 
+      });
+    } catch (e: any) {
+      console.error('[AutoVerify] Error:', e.message);
+      res.status(500).json({ error: e.message });
     }
   });
 

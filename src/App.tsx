@@ -7,6 +7,7 @@ import { IntelligenceHub } from './pages/IntelligenceHub';
 import { AssetDetail } from './pages/AssetDetail';
 import { SipTracker } from './pages/SipTracker';
 import { Accuracy } from './pages/Accuracy';
+import { AdminPayments } from './pages/AdminPayments';
 import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import Privacy from './pages/legal/Privacy';
@@ -515,6 +516,22 @@ function AppContent() {
               <Award size={14} className="nav-icon" />
               Accuracy Matrix
             </NavLink>
+
+            {userProfile?.email === 'faisaldarjee9@gmail.com' && (
+              <NavLink 
+                to="/admin/payments" 
+                className={({ isActive }) => 
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-2 font-body text-[12.5px] transition-all duration-150 ${
+                    isActive 
+                      ? 'nav-active text-white font-medium' 
+                      : 'border-l-transparent text-[#8892A4] hover:text-white hover:bg-[rgba(255,255,255,0.02)]'
+                  }`
+                }
+              >
+                <ShieldCheck size={14} className="nav-icon text-amber-500" />
+                Admin Payments
+              </NavLink>
+            )}
           </nav>
           
           <div className="pt-2.5 px-1 border-t border-[rgba(255,255,255,0.04)] mt-2">
@@ -665,6 +682,21 @@ function AppContent() {
                 <Award size={15} />
                 Accuracy
               </NavLink>
+
+              {userProfile?.email === 'faisaldarjee9@gmail.com' && (
+                <NavLink 
+                  to="/admin/payments" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={({ isActive }) => 
+                    `flex items-center gap-3 px-4 py-3 rounded-xl font-mono uppercase tracking-wider text-xs font-bold ${
+                      isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-850'
+                    }`
+                  }
+                >
+                  <ShieldCheck size={15} className="text-amber-500" />
+                  Admin Payments
+                </NavLink>
+              )}
               
               <Link
                 to="/landing"
@@ -723,6 +755,7 @@ function AppContent() {
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/sip" element={<ProtectedRoute><SipTracker /></ProtectedRoute>} />
             <Route path="/accuracy" element={<ProtectedRoute><Accuracy /></ProtectedRoute>} />
+            <Route path="/admin/payments" element={<ProtectedRoute><AdminPayments /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
