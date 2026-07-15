@@ -1,4 +1,5 @@
 import { NIFTY_500_SYMBOLS } from '../data/nifty500';
+import { SMALLCAP_100_SYMBOLS } from '../data/smallcapStocks';
 import { TechnicalAgent } from './agents/technicalAgent';
 import { getPricesHistory } from './serverApi';
 import { SECTORS, getSectorForSymbol } from './sectorIntelligence';
@@ -291,7 +292,7 @@ export async function scanNifty500ForSwingSetups(): Promise<SwingSetup[]> {
   }
 
   // Merge and de-duplicate symbols to create the final scan universe
-  const scanUniverse = Array.from(new Set([...NIFTY_500_SYMBOLS, ...customSymbols]));
+  const scanUniverse = Array.from(new Set([...NIFTY_500_SYMBOLS, ...SMALLCAP_100_SYMBOLS, ...customSymbols]));
 
   const results: {
     symbol: string;

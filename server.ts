@@ -391,6 +391,27 @@ async function startServer() {
       res.status(500).json({ success: false, error: e.message });
     }
   });
+
+  // Trigger full swing setups scanner scan immediately
+  app.post('/api/admin/run-scanner', checkAdminKey, async (req, res) => {
+    try {
+      const { scanNifty500ForSwingSetups } = await import('./src/services/bulkScanner');
+      
+      // Run in background
+      scanNifty500ForSwingSetups().then((results) => {
+        console.log(`[AdminScanner] Completed manually triggered scan. Found ${results.length} setups.`);
+      }).catch(err => {
+        console.error('[AdminScanner] Error running scanner:', err);
+      });
+
+      res.json({
+        success: true,
+        message: 'Scanner execution started in background.'
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
   // Gemini API Quota endpoint
   app.get('/api/gemini/quota', (req, res) => {
     res.json({
