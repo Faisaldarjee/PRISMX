@@ -15,6 +15,7 @@ import compression from 'compression';
 
 import fs from 'fs';
 import { scanNifty500ForSwingSetups, getCachedSwingSetups, isCacheValid } from './src/services/bulkScanner';
+import { runMultibaggerScan, getCachedMultibaggers } from './src/services/multibaggerScanner';
 import { getNSEQuote, getMultipleQuotes } from './src/services/nseQuotes';
 
 import { 
@@ -1431,6 +1432,23 @@ async function startServer() {
       }
     } catch (error: any) {
       console.error('Error in /api/scanner/top5:', error);
+      res.status(500).json({ detail: error.message });
+    }
+  });
+
+  // MULTIBAGGER RADAR ENDPOINT
+  app.get('/api/multibagger-radar', async (req, res) => {
+    try {
+      let candidates = getCachedMultibaggers();
+      if (!candidates || candidates.length === 0) {
+        console.log('[API] Multibagger cache empty, running scanner in background...');
+        runMultibaggerScan().catch(err => {
+          console.error('[API /api/multibagger-radar] Scan error:', err);
+        });
+      }
+      res.json(candidates);
+    } catch (error: any) {
+      console.error('Error in /api/multibagger-radar:', error);
       res.status(500).json({ detail: error.message });
     }
   });

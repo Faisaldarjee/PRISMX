@@ -8,6 +8,7 @@ import { AssetDetail } from './pages/AssetDetail';
 import { SipTracker } from './pages/SipTracker';
 import { Accuracy } from './pages/Accuracy';
 import { AdminPayments } from './pages/AdminPayments';
+import { MultibaggerRadar } from './pages/MultibaggerRadar';
 import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import Privacy from './pages/legal/Privacy';
@@ -38,7 +39,8 @@ import {
   Check,
   Settings,
   AlertTriangle,
-  Flame
+  Flame,
+  Rocket
 } from 'lucide-react';
 
 function getNSEStatus() {
@@ -517,6 +519,23 @@ function AppContent() {
               Accuracy Matrix
             </NavLink>
 
+            <NavLink 
+              to="/multibagger" 
+              className={({ isActive }) => 
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-2 font-body text-[12.5px] transition-all duration-150 ${
+                  isActive 
+                    ? 'nav-active text-amber-400 font-medium' 
+                    : 'border-l-transparent text-[#D4A843] hover:text-amber-300 hover:bg-[rgba(212,168,67,0.05)]'
+                }`
+              }
+            >
+              <Rocket size={14} className="nav-icon text-amber-500 animate-pulse" />
+              Multibagger Radar
+              <span className="ml-auto text-[9px] font-mono font-black bg-amber-500/10 border border-amber-500/30 text-[#D4A843] px-1.5 py-0.2 rounded">
+                PRO
+              </span>
+            </NavLink>
+
             {userProfile?.email === 'faisaldarjee9@gmail.com' && (
               <NavLink 
                 to="/admin/payments" 
@@ -683,6 +702,24 @@ function AppContent() {
                 Accuracy
               </NavLink>
 
+              <NavLink 
+                to="/multibagger" 
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) => 
+                  `flex items-center justify-between px-4 py-3 rounded-xl font-mono uppercase tracking-wider text-xs font-bold ${
+                    isActive ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-[#D4A843] hover:bg-slate-850'
+                  }`
+                }
+              >
+                <span className="flex items-center gap-3">
+                  <Rocket size={15} className="text-amber-500 animate-pulse" />
+                  Multibagger Radar
+                </span>
+                <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-black">
+                  PRO
+                </span>
+              </NavLink>
+
               {userProfile?.email === 'faisaldarjee9@gmail.com' && (
                 <NavLink 
                   to="/admin/payments" 
@@ -755,6 +792,7 @@ function AppContent() {
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/sip" element={<ProtectedRoute><SipTracker /></ProtectedRoute>} />
             <Route path="/accuracy" element={<ProtectedRoute><Accuracy /></ProtectedRoute>} />
+            <Route path="/multibagger" element={<ProtectedRoute><MultibaggerRadar /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute><AdminPayments /></ProtectedRoute>} />
           </Routes>
         </main>
