@@ -873,15 +873,17 @@ async function startServer() {
       // 1. Confusion Matrix
       let tp = 0, fp = 0, tn = 0, fn = 0;
       verified.forEach(r => {
-        if (r.action === 'BUY' && r.outcome === 'CORRECT') tp++;
-        else if (r.action === 'BUY' && r.outcome === 'INCORRECT') fp++;
-        else if (r.action === 'SELL' && r.outcome === 'CORRECT') tn++;
-        else if (r.action === 'SELL' && r.outcome === 'INCORRECT') fn++;
+        const isBuy = r.action?.includes('BUY');
+        const isSell = r.action?.includes('SELL');
+        if (isBuy && r.outcome === 'CORRECT') tp++;
+        else if (isBuy && r.outcome === 'INCORRECT') fp++;
+        else if (isSell && r.outcome === 'CORRECT') tn++;
+        else if (isSell && r.outcome === 'INCORRECT') fn++;
       });
 
       // 2. Win Rate by Signal Type
-      const buySignals = verified.filter(r => r.action === 'BUY');
-      const sellSignals = verified.filter(r => r.action === 'SELL');
+      const buySignals = verified.filter(r => r.action?.includes('BUY'));
+      const sellSignals = verified.filter(r => r.action?.includes('SELL'));
       const buyWinRate = buySignals.length > 0
         ? (buySignals.filter(r => r.outcome === 'CORRECT').length / buySignals.length * 100)
         : 0;
@@ -1330,50 +1332,65 @@ async function startServer() {
       }
 
       const enriched: any[] = [];
-      const limit = Math.min(3, setups.length);
-      for (let i = 0; i < limit; i++) {
+      for (let i = 0; i < setups.length; i++) {
         const item: any = setups[i];
-        try {
-          const sym = item.symbol;
-          const prediction = await compilePrediction(sym);
-          const prices = await getPricesHistory(sym, 100);
-          const lastCandle = prices[prices.length - 1];
-          const prevCandle = prices[prices.length - 2];
-          const changePercent = prevCandle ? ((lastCandle.close - prevCandle.close) / prevCandle.close) * 100 : 0;
-          
-          const sectorKey = getSectorForSymbol(sym);
-          const matchedSector = SECTORS[sectorKey] ? SECTORS[sectorKey].name : 'Diversified / Others';
+        if (i < 3) {
+          try {
+            const sym = item.symbol;
+            const prediction = await compilePrediction(sym);
+            const prices = await getPricesHistory(sym, 100);
+            const lastCandle = prices[prices.length - 1];
+            const prevCandle = prices[prices.length - 2];
+            const changePercent = prevCandle ? ((lastCandle.close - prevCandle.close) / prevCandle.close) * 100 : 0;
+            
+            const sectorKey = getSectorForSymbol(sym);
+            const matchedSector = SECTORS[sectorKey] ? SECTORS[sectorKey].name : 'Diversified / Others';
 
+            enriched.push({
+              symbol: sym,
+              tickerName: sym.replace('.NS', ''),
+              rsi: Math.round(item.rsi),
+              adx: Math.round(item.adx),
+              atr: item.atr,
+              volumeRatio: item.volumeRatio,
+              isSqueezed: item.isSqueezed,
+              bbWidth: item.bbWidth,
+              volumeConfirmed: item.volumeConfirmed,
+              score: prediction.confidence || item.score,
+              setupScore: prediction.confidence || item.score,
+              lastPrice: item.lastPrice || lastCandle?.close || 100,
+              changePercent,
+              stopLoss: prediction.trade_plan?.stop_loss || item.stopLoss || prediction.stop_loss,
+              target1: prediction.trade_plan?.target_1 || item.target1 || prediction.target_price,
+              target2: prediction.trade_plan?.target_2 || item.target2 || (prediction.target_price * 1.05),
+              trade_plan: prediction.trade_plan,
+              detected_patterns: prediction.detected_patterns || [item.patternName].filter(Boolean),
+              markers: prediction.markers || [],
+              hold_time_recommendation: prediction.hold_time_recommendation,
+              sector: matchedSector,
+              signal: prediction.signal || item.signal || 'HOLD',
+              support_levels: prediction.support_levels || [],
+              resistance_levels: prediction.resistance_levels || [],
+              intelligenceContext: prediction.intelligenceContext
+            });
+          } catch (e) {
+            console.error(`Error enriching scanner setup ${item.symbol}:`, e);
+            const sectorKey = getSectorForSymbol(item.symbol);
+            const matchedSector = SECTORS[sectorKey] ? SECTORS[sectorKey].name : 'Diversified / Others';
+            enriched.push({
+              ...item,
+              sector: matchedSector,
+              changePercent: 0
+            });
+          }
+        } else {
+          const sectorKey = getSectorForSymbol(item.symbol);
+          const matchedSector = SECTORS[sectorKey] ? SECTORS[sectorKey].name : 'Diversified / Others';
           enriched.push({
-            symbol: sym,
-            tickerName: sym.replace('.NS', ''),
-            rsi: Math.round(item.rsi),
-            adx: Math.round(item.adx),
-            atr: item.atr,
-            volumeRatio: item.volumeRatio,
-            isSqueezed: item.isSqueezed,
-            bbWidth: item.bbWidth,
-            volumeConfirmed: item.volumeConfirmed,
-            score: prediction.confidence,
-            setupScore: prediction.confidence,
-            lastPrice: item.lastPrice || lastCandle?.close || 100,
-            changePercent,
-            stopLoss: prediction.trade_plan?.stop_loss || prediction.stop_loss,
-            target1: prediction.trade_plan?.target_1 || prediction.target_price,
-            target2: prediction.trade_plan?.target_2 || (prediction.target_price * 1.05),
-            trade_plan: prediction.trade_plan,
-            detected_patterns: prediction.detected_patterns || [],
-            markers: prediction.markers || [],
-            hold_time_recommendation: prediction.hold_time_recommendation,
+            ...item,
             sector: matchedSector,
-            signal: prediction.signal || 'HOLD',
-            support_levels: prediction.support_levels || [],
-            resistance_levels: prediction.resistance_levels || [],
-            intelligenceContext: prediction.intelligenceContext
+            changePercent: 0
           });
-        } catch (e) {
-          console.error(`Error enriching scanner setup ${item.symbol}:`, e);
-          enriched.push(item);
         }
       }
 
@@ -1507,6 +1524,21 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 PRISM server fully integrated. Root accessible on http://localhost:${PORT}`);
+    
+    // Auto-seed baseline accuracy logs if database is empty on server startup
+    setTimeout(async () => {
+      try {
+        const report = getAccuracyReport();
+        if (!report || report.status === 'BUILDING' || !report.verified_predictions) {
+          console.log('[Accuracy] Empty accuracy logs detected on startup — seeding initial backtest dataset...');
+          await runHistoricalBacktest('GOLDBEES.NS');
+          await runHistoricalBacktest('TATAMOTORS.NS');
+          console.log('[Accuracy] Initial backtest dataset seeded successfully!');
+        }
+      } catch (err) {
+        console.error('[Accuracy] Auto-seed failed:', err);
+      }
+    }, 3000);
   });
 }
 

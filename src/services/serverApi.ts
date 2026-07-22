@@ -1513,7 +1513,7 @@ export function getAccuracyReport(): any {
     WHERE was_correct IS NOT NULL
     AND signal != 'HOLD'
     GROUP BY symbol
-    HAVING COUNT(*) >= 5
+    HAVING COUNT(*) >= 1
     ORDER BY accuracy DESC
   `).all() as any[];
 
